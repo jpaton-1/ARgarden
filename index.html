@@ -3,12 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Community Garden AR</title>
+    <title>Why can't this be a community garden?</title>
     
     <!-- Include Three.js for 3D rendering -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <!-- Include GLTFLoader for loading 3D models -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- Include DeviceOrientationControls for phone motion -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
     
     <style>
         body {
@@ -36,6 +38,28 @@
             box-sizing: border-box;
         }
         
+        #loading-progress {
+            width: 80%;
+            max-width: 300px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        #loading-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        
+        #loading-text {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
         #camera-feed {
             position: fixed;
             top: 0;
@@ -56,7 +80,7 @@
             pointer-events: none;
         }
         
-        #garden-text {
+        #message-container {
             position: absolute;
             top: 20%;
             left: 50%;
@@ -71,6 +95,7 @@
             animation: float 4s ease-in-out infinite;
             z-index: 10;
             pointer-events: none;
+            display: none;
         }
         
         #response-display {
@@ -89,6 +114,7 @@
             animation-delay: 2s;
             z-index: 10;
             pointer-events: none;
+            display: none;
         }
         
         @keyframes float {
@@ -123,7 +149,7 @@
         }
         
         #place-btn {
-            background-color: #2196F3;
+            background-color: #4CAF50;
         }
         
         #reset-btn {
@@ -203,14 +229,66 @@
             z-index: 10;
             max-width: 80%;
         }
+        
+        #permission-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            padding: 20px;
+        }
+        
+        #permission-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        #debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 100;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <!-- Loading screen -->
     <div id="loading">
         <h1>Community Garden AR</h1>
-        <p>Loading... Please allow camera access when prompted.</p>
-        <p>Tap the blue button to place the garden in your space!</p>
+        <p>Loading flowers... Please wait</p>
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
+        </div>
+        <div id="loading-text">Loading: 0%</div>
+    </div>
+    
+    <!-- Permission overlay for iOS devices -->
+    <div id="permission-overlay">
+        <h2>Motion Sensors Required</h2>
+        <p>This AR experience needs access to your device motion sensors.</p>
+        <button id="permission-btn">Allow Motion Sensors</button>
     </div>
     
     <!-- Camera feed -->
@@ -219,17 +297,21 @@
     <!-- Canvas for Three.js rendering -->
     <div id="canvas-container"></div>
     
-    <!-- Floating text elements (separate from Three.js) -->
-    <div id="garden-text" style="display: none;">Why can't this be a community garden?</div>
-    <div id="response-display" style="display: none;"></div>
+    <!-- Message display -->
+    <div id="message-container">
+        <p id="message-text">Why can't this be a community garden?</p>
+    </div>
+    
+    <!-- Response display -->
+    <div id="response-display"></div>
     
     <!-- Instructions -->
-    <div id="instructions">Tap the blue button to place the garden</div>
+    <div id="instructions">Tap the green button to experience the garden, then look around</div>
     
     <!-- Controls -->
     <div class="controls">
         <button id="response-toggle" class="btn">+</button>
-        <button id="place-btn" class="btn">📍</button>
+        <button id="place-btn" class="btn">🌸</button>
         <button id="reset-btn" class="btn">↺</button>
     </div>
     
@@ -240,7 +322,7 @@
             <label for="name">Your Name:</label>
             <input type="text" id="name" name="name" required>
             
-            <label for="message">Why do you think this should be a community garden?</label>
+            <label for="message">Why can't this be a community garden?</label>
             <textarea id="message" name="message" required></textarea>
             
             <button type="submit">Submit</button>
@@ -248,39 +330,419 @@
         <div id="response-status"></div>
     </div>
     
+    <!-- Debug info -->
+    <div id="debug-info"></div>
+    
     <script>
         // Wait for DOM to load
         document.addEventListener('DOMContentLoaded', function() {
             // Get elements
             const loading = document.getElementById('loading');
+            const loadingBar = document.getElementById('loading-bar');
+            const loadingText = document.getElementById('loading-text');
+            const permissionOverlay = document.getElementById('permission-overlay');
+            const permissionBtn = document.getElementById('permission-btn');
             const cameraFeed = document.getElementById('camera-feed');
             const canvasContainer = document.getElementById('canvas-container');
             const instructions = document.getElementById('instructions');
-            const gardenText = document.getElementById('garden-text');
+            const messageContainer = document.getElementById('message-container');
             const responseDisplay = document.getElementById('response-display');
             const placeBtn = document.getElementById('place-btn');
             const resetBtn = document.getElementById('reset-btn');
             const responseToggle = document.getElementById('response-toggle');
             const responseForm = document.getElementById('response-form');
+            const debugInfo = document.getElementById('debug-info');
             
             // App state
             let isPlaced = false;
-            let scene, camera, renderer;
+            let scene, camera, renderer, controls;
             let flowerModels = [];
             let flowers = [];
+            let modelsLoaded = false;
+            let modelsLoading = false;
             
-            // Start camera
-            startCamera();
+            // Check for URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const debugMode = urlParams.has('debug');
+            
+            // Enable debug info if in debug mode
+            if (debugMode) {
+                debugInfo.style.display = 'block';
+            }
+            
+            // Debug log function
+            function debugLog(message) {
+                if (debugMode) {
+                    console.log(message);
+                    debugInfo.textContent = message;
+                }
+            }
+            
+            // Check for iOS device
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            // Initialize the AR experience
+            initAR();
+            
+            // Initialize AR experience
+            function initAR() {
+                debugLog('Initializing AR...');
+                
+                // Start camera
+                startCamera();
+                
+                // Check for device orientation permission on iOS
+                if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    debugLog('iOS device detected, showing permission overlay');
+                    permissionOverlay.style.display = 'flex';
+                    
+                    permissionBtn.addEventListener('click', function() {
+                        requestMotionPermission();
+                    });
+                } else {
+                    // Non-iOS devices or iOS 12 and under don't need to request permission
+                    debugLog('Non-iOS device or older iOS version');
+                    initThree();
+                }
+            }
+            
+            // Request motion sensor permission (for iOS 13+)
+            function requestMotionPermission() {
+                debugLog('Requesting motion permission...');
+                
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            debugLog('Motion permission granted');
+                            permissionOverlay.style.display = 'none';
+                            initThree();
+                        } else {
+                            debugLog('Motion permission denied');
+                            alert('Motion sensor access is required for this AR experience to work properly.');
+                        }
+                    })
+                    .catch(error => {
+                        debugLog('Error requesting motion permission: ' + error);
+                        alert('Error accessing motion sensors. Please try again or use a different device.');
+                    });
+            }
+            
+            // Function to start camera
+            function startCamera() {
+                debugLog('Starting camera...');
+                
+                // Check for camera support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert('Sorry, your browser does not support camera access. Please try a different browser.');
+                    loading.innerHTML = '<h1>Camera Not Supported</h1><p>Please try a different browser.</p>';
+                    return;
+                }
+                
+                // Get camera feed
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: window.innerWidth },
+                        height: { ideal: window.innerHeight }
+                    } 
+                })
+                .then(function(stream) {
+                    cameraFeed.srcObject = stream;
+                    
+                    // When video is ready
+                    cameraFeed.onloadedmetadata = function() {
+                        debugLog('Camera feed loaded');
+                        cameraFeed.play();
+                    };
+                })
+                .catch(function(err) {
+                    console.error('Error accessing camera:', err);
+                    debugLog('Camera error: ' + err.message);
+                    loading.innerHTML = '<h1>Camera Access Error</h1><p>Please allow camera access to use this app.</p>';
+                });
+            }
             
             // Initialize Three.js
-            initThree();
+            function initThree() {
+                debugLog('Initializing Three.js...');
+                
+                // Create scene
+                scene = new THREE.Scene();
+                
+                // Create camera (will be updated based on device orientation)
+                camera = new THREE.PerspectiveCamera(
+                    75, 
+                    window.innerWidth / window.innerHeight, 
+                    0.1, 
+                    1000
+                );
+                camera.position.set(0, 1.6, 0);  // Approximate eye height
+                
+                // Create renderer
+                renderer = new THREE.WebGLRenderer({ alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setClearColor(0x000000, 0); // Transparent background
+                canvasContainer.appendChild(renderer.domElement);
+                
+                // Create device orientation controls
+                controls = new THREE.DeviceOrientationControls(camera);
+                
+                // Create lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(1, 1, 1);
+                scene.add(directionalLight);
+                
+                // Create ground plane
+                const groundGeometry = new THREE.CircleGeometry(20, 32);
+                const groundMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x7c5c3c,
+                    transparent: true,
+                    opacity: 0.3,
+                    side: THREE.DoubleSide
+                });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -0.5;
+                ground.visible = false;
+                scene.add(ground);
+                window.ground = ground;
+                
+                // Start animation loop
+                animate();
+                
+                // Load flower models (with priority)
+                loadFlowerModels();
+                
+                // Handle window resize
+                window.addEventListener('resize', onWindowResize);
+                
+                debugLog('Three.js initialized');
+            }
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // Update device orientation controls
+                if (controls) {
+                    controls.update();
+                }
+                
+                // Update flower animations if placed
+                if (isPlaced) {
+                    updateFlowerAnimations();
+                }
+                
+                renderer.render(scene, camera);
+            }
+            
+            // Handle window resize
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+            
+            // Load flower GLB models
+            function loadFlowerModels() {
+                // Prevent double loading
+                if (modelsLoading) return;
+                modelsLoading = true;
+                
+                debugLog('Loading GLB flower models...');
+                
+                // Define flower model paths
+                const flowerFiles = [
+                    '6 Orchid.glb',
+                    '7 Poppy.glb',
+                    '8 Iris.glb',
+                    '13 Marigold.glb',
+                    '16 Lavender.glb',
+                    '17 Hibiscus.glb',
+                    '20 Violet.glb',
+                    '24 Cosmos.glb',
+                    '25 Snapdragon.glb',
+                    '26 Morning Glory.glb',
+                    '27 Anemone.glb',
+                    '30 Primrose.glb'
+                ];
+                
+                // Create an array of flower models to load
+                const flowerPaths = flowerFiles.map(filename => {
+                    return { 
+                        path: `./models/${filename}`, 
+                        scale: 0.5,
+                        name: filename.replace('.glb', '')
+                    };
+                });
+                
+                // Set up loader
+                const loader = new THREE.GLTFLoader();
+                let loadedCount = 0;
+                let successCount = 0;
+                const totalModels = flowerPaths.length;
+                
+                // Check if all models have been processed
+                const checkAllLoaded = () => {
+                    loadedCount++;
+                    
+                    // Update progress
+                    const percent = Math.round((loadedCount / totalModels) * 100);
+                    loadingBar.style.width = `${percent}%`;
+                    loadingText.textContent = `Loading: ${percent}% (${successCount} models loaded)`;
+                    
+                    // Once all models have been processed
+                    if (loadedCount >= totalModels) {
+                        debugLog(`Model loading complete: ${successCount}/${totalModels} models loaded`);
+                        
+                        if (successCount > 0) {
+                            modelsLoaded = true;
+                            
+                            // Hide loading screen after a brief delay
+                            setTimeout(() => {
+                                loading.style.display = 'none';
+                            }, 500);
+                        } else {
+                            // No models loaded successfully
+                            debugLog('No GLB models loaded successfully, using fallbacks');
+                            createFallbackFlowerModels();
+                            
+                            // Hide loading screen after creating fallbacks
+                            setTimeout(() => {
+                                loading.style.display = 'none';
+                            }, 500);
+                        }
+                    }
+                };
+                
+                // Load each model with a small delay to avoid overwhelming the browser
+                flowerPaths.forEach((flowerInfo, index) => {
+                    // Add a small staggered delay to prevent overwhelming the browser
+                    setTimeout(() => {
+                        try {
+                            loader.load(
+                                flowerInfo.path,
+                                (gltf) => {
+                                    // Success - add to models
+                                    flowerModels.push({
+                                        model: gltf.scene,
+                                        scale: flowerInfo.scale,
+                                        type: 'gltf',
+                                        name: flowerInfo.name
+                                    });
+                                    
+                                    successCount++;
+                                    debugLog(`Successfully loaded: ${flowerInfo.path}`);
+                                    checkAllLoaded();
+                                },
+                                (xhr) => {
+                                    // Progress
+                                    if (xhr.lengthComputable) {
+                                        const modelPercent = Math.round((xhr.loaded / xhr.total) * 100);
+                                        debugLog(`Loading model ${index + 1}: ${modelPercent}%`);
+                                    }
+                                },
+                                (error) => {
+                                    // Error loading model
+                                    console.warn(`Error loading model ${flowerInfo.path}:`, error);
+                                    debugLog(`Failed to load: ${flowerInfo.path}`);
+                                    checkAllLoaded();
+                                }
+                            );
+                        } catch (e) {
+                            console.warn(`Error loading model ${flowerInfo.path}:`, e);
+                            debugLog(`Exception loading: ${flowerInfo.path}`);
+                            checkAllLoaded();
+                        }
+                    }, index * 100); // Stagger loading by 100ms per model
+                });
+                
+                // If no models load after a timeout, create fallbacks
+                setTimeout(() => {
+                    if (successCount === 0 && !modelsLoaded) {
+                        debugLog('Loading timeout - creating fallback models');
+                        createFallbackFlowerModels();
+                        loading.style.display = 'none';
+                    }
+                }, 15000); // 15 second timeout
+            }
+            
+            // Create fallback flower models
+            function createFallbackFlowerModels() {
+                // Only create fallbacks if we don't have GLB models
+                if (flowerModels.length > 0) return;
+                
+                debugLog('Creating fallback flower models...');
+                
+                // Flower colors
+                const flowerColors = [
+                    0xFF69B4, // Pink
+                    0xFF0000, // Red
+                    0xFFD700, // Yellow
+                    0x9400D3, // Purple
+                    0x1E90FF  // Blue
+                ];
+                
+                // Create flower models
+                for (let i = 0; i < flowerColors.length; i++) {
+                    // Create flower group
+                    const flowerGroup = new THREE.Group();
+                    
+                    // Create stem
+                    const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
+                    const stemMaterial = new THREE.MeshLambertMaterial({ color: 0x2ECC71 });
+                    const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+                    stem.position.y = 0.2;
+                    flowerGroup.add(stem);
+                    
+                    // Create flower head
+                    const flowerGeometry = new THREE.SphereGeometry(0.1, 12, 12);
+                    const flowerMaterial = new THREE.MeshLambertMaterial({ color: flowerColors[i] });
+                    const flowerHead = new THREE.Mesh(flowerGeometry, flowerMaterial);
+                    flowerHead.position.y = 0.45;
+                    flowerGroup.add(flowerHead);
+                    
+                    // Create center of flower
+                    const centerGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+                    const centerMaterial = new THREE.MeshLambertMaterial({ 
+                        color: i % 2 === 0 ? 0xFFFF00 : 0xFFA500
+                    });
+                    const center = new THREE.Mesh(centerGeometry, centerMaterial);
+                    center.position.y = 0.47;
+                    flowerGroup.add(center);
+                    
+                    // Add leaf
+                    const leafGeometry = new THREE.ConeGeometry(0.05, 0.1, 8);
+                    const leafMaterial = new THREE.MeshLambertMaterial({ color: 0x2E8B57 });
+                    const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                    leaf.rotation.z = Math.PI / 2;
+                    leaf.position.set(0.08, 0.25, 0);
+                    flowerGroup.add(leaf);
+                    
+                    // Add to flowerModels array
+                    flowerModels.push({
+                        model: flowerGroup,
+                        scale: 1,
+                        type: 'fallback',
+                        name: `Fallback Flower ${i+1}`
+                    });
+                }
+                
+                modelsLoaded = true;
+                debugLog(`${flowerModels.length} fallback models created`);
+            }
             
             // Handle place button click
             placeBtn.addEventListener('click', function() {
                 if (isPlaced) return;
                 
-                // Show garden
-                gardenText.style.display = 'block';
+                debugLog('Placing garden...');
+                
+                // Show message
+                messageContainer.style.display = 'block';
                 responseDisplay.style.display = 'block';
                 
                 // Update UI
@@ -289,7 +751,10 @@
                 responseToggle.style.display = 'block';
                 instructions.style.display = 'none';
                 
-                // Place flowers
+                // Show ground
+                window.ground.visible = true;
+                
+                // Place flowers in 360° around the user
                 placeFlowers();
                 
                 // Mark as placed
@@ -303,8 +768,10 @@
             resetBtn.addEventListener('click', function() {
                 if (!isPlaced) return;
                 
-                // Hide garden
-                gardenText.style.display = 'none';
+                debugLog('Resetting garden...');
+                
+                // Hide message
+                messageContainer.style.display = 'none';
                 responseDisplay.style.display = 'none';
                 
                 // Update UI
@@ -314,10 +781,13 @@
                 responseForm.style.display = 'none';
                 instructions.style.display = 'block';
                 
+                // Hide ground
+                window.ground.visible = false;
+                
                 // Remove flowers
                 removeFlowers();
                 
-                // Clear response interval
+                // Clear response interval if any
                 if (window.responseInterval) {
                     clearInterval(window.responseInterval);
                     window.responseInterval = null;
@@ -395,380 +865,130 @@
                 });
             });
             
-            // Function to start camera
-            function startCamera() {
-                // Check for camera support
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    alert('Sorry, your browser does not support camera access. Please try a different browser.');
-                    loading.innerHTML = '<h1>Camera Not Supported</h1><p>Please try a different browser.</p>';
-                    return;
-                }
-                
-                // Get camera feed
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                    .then(function(stream) {
-                        cameraFeed.srcObject = stream;
-                        
-                        // When video is ready
-                        cameraFeed.onloadedmetadata = function() {
-                            cameraFeed.play();
-                            setTimeout(() => {
-                                loading.style.display = 'none';
-                            }, 1000);
-                        };
-                    })
-                    .catch(function(err) {
-                        console.error('Error accessing camera:', err);
-                        loading.innerHTML = '<h1>Camera Access Error</h1><p>Please allow camera access to use this app.</p>';
-                    });
-            }
-            
-            // Initialize Three.js
-            function initThree() {
-                // Create scene
-                scene = new THREE.Scene();
-                
-                // Create camera
-                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                camera.position.z = 5;
-                
-                // Create renderer
-                renderer = new THREE.WebGLRenderer({ alpha: true });
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setClearColor(0x000000, 0); // Transparent background
-                canvasContainer.appendChild(renderer.domElement);
-                
-                // Create lights
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-                scene.add(ambientLight);
-                
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(1, 1, 1);
-                scene.add(directionalLight);
-                
-                // Create ground plane
-                const groundGeometry = new THREE.CircleGeometry(3, 32);
-                const groundMaterial = new THREE.MeshBasicMaterial({ 
-                    color: 0x7c5c3c,
-                    transparent: true,
-                    opacity: 0.3,
-                    side: THREE.DoubleSide
-                });
-                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-                ground.rotation.x = -Math.PI / 2;
-                ground.visible = false;
-                scene.add(ground);
-                window.ground = ground;
-                
-                // Start animation loop
-                animate();
-                
-                // Preload flower models
-                preloadFlowerModels();
-                
-                // Handle window resize
-                window.addEventListener('resize', onWindowResize);
-            }
-            
-            // Animation loop
-            function animate() {
-                requestAnimationFrame(animate);
-                renderer.render(scene, camera);
-            }
-            
-            // Handle window resize
-            function onWindowResize() {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-            
-            // Preload flower models
-            function preloadFlowerModels() {
-                // Define flower model paths
-                const flowerPaths = [
-                    { path: './models/6 Orchid.glb', scale: 0.5 },
-                    { path: './models/7 Poppy.glb', scale: 0.5 },
-                    { path: './models/8 Iris.glb', scale: 0.5 },
-                    { path: './models/13 Marigold.glb', scale: 0.5 },
-                    { path: './models/16 Lavender.glb', scale: 0.5 },
-                    { path: './models/17 Hibiscus.glb', scale: 0.5 },
-                    { path: './models/20 Violet.glb', scale: 0.5 },
-                    { path: './models/24 Cosmos.glb', scale: 0.5 },
-                    { path: './models/25 Snapdragon.glb', scale: 0.5 },
-                    { path: './models/26 Morning Glory.glb', scale: 0.5 },
-                    { path: './models/27 Anemone.glb', scale: 0.5 },
-                    { path: './models/30 Primrose.glb', scale: 0.5 }
-                ];
-                
-                // Fallback models if GLB files are not available
-                const fallbackModels = [];
-                
-                // Create simple flower shapes for fallback
-                for (let i = 0; i < 6; i++) {
-                    const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
-                    const stemMaterial = new THREE.MeshBasicMaterial({ color: 0x2ECC71 });
-                    const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-                    
-                    const flowerGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-                    const flowerMaterial = new THREE.MeshBasicMaterial({ 
-                        color: new THREE.Color().setHSL(i/6, 0.7, 0.5) 
-                    });
-                    const flowerHead = new THREE.Mesh(flowerGeometry, flowerMaterial);
-                    flowerHead.position.y = 0.25;
-                    
-                    const flowerGroup = new THREE.Group();
-                    flowerGroup.add(stem);
-                    flowerGroup.add(flowerHead);
-                    
-                    fallbackModels.push({ model: flowerGroup, scale: 1 });
-                }
-                
-                // Try to load real models
-                const loader = new THREE.GLTFLoader();
-                let loadedCount = 0;
-                
-                // Check if any models loaded
-                const checkAllLoaded = () => {
-                    loadedCount++;
-                    if (loadedCount >= flowerPaths.length) {
-                        // If no models were loaded, use fallbacks
-                        if (flowerModels.length === 0) {
-                            console.warn("No 3D models loaded. Using fallback models.");
-                            flowerModels = fallbackModels;
-                        }
-                    }
-                };
-                
-                // Try to load each model
-                flowerPaths.forEach((flowerInfo, index) => {
-                    try {
-                        loader.load(
-                            flowerInfo.path,
-                            (gltf) => {
-                                // Success - add to models
-                                flowerModels.push({
-                                    model: gltf.scene,
-                                    scale: flowerInfo.scale
-                                });
-                                checkAllLoaded();
-                            },
-                            (xhr) => {
-                                // Progress 
-                            },
-                            (error) => {
-                                // Error loading model
-                                console.warn(`Error loading model ${flowerInfo.path}:`, error);
-                                checkAllLoaded();
-                            }
-                        );
-                    } catch (e) {
-                        console.warn(`Error loading model ${flowerInfo.path}:`, e);
-                        checkAllLoaded();
-                    }
-                });
-                
-                // If no models are loading, set timeout to use fallbacks
-                setTimeout(() => {
-                    if (flowerModels.length === 0) {
-                        console.warn("No 3D models available. Using fallback models.");
-                        flowerModels = fallbackModels;
-                    }
-                }, 5000);
-            }
-            
-            // Place flowers around the scene
+            // Place flowers in 360° around the user
             function placeFlowers() {
-                // Show ground
-                window.ground.visible = true;
+                debugLog(`Placing flowers with ${flowerModels.length} models available`);
                 
-                // If no flower models are available yet, use simple shapes
-                if (flowerModels.length === 0) {
-                    console.warn("No flower models loaded yet. Using simple shapes.");
-                    
-                    // Create simple flowers (fallback)
-                    for (let i = 0; i < 15; i++) {
-                        createFallbackFlower(i);
-                    }
-                    return;
-                }
+                // How many flowers to create (10x more than before)
+                const flowerCount = 150;
                 
-                // Place actual flower models
-                const flowerCount = 15;
-                const radius = 2.5;
+                // Define the area to place flowers (360° around the user)
+                const minDistance = 3;  // Min distance from user (meters)
+                const maxDistance = 15; // Max distance from user (meters)
+                const minHeight = -0.5; // Min height (ground level)
+                const maxHeight = 0.5;  // Max height (small variance)
                 
+                // Individual flower data for animations
+                const flowerData = [];
+                
+                // Create many flowers in random positions around the user
                 for (let i = 0; i < flowerCount; i++) {
-                    // Calculate position in a circle
-                    const angle = (i / flowerCount) * Math.PI * 2;
-                    const randomRadius = radius * (0.3 + Math.random() * 0.7);
-                    const x = Math.cos(angle) * randomRadius;
-                    const z = Math.sin(angle) * randomRadius;
-                    
-                    // Select random flower model
+                    // Select a random flower model
                     const flowerIndex = Math.floor(Math.random() * flowerModels.length);
                     const flowerInfo = flowerModels[flowerIndex];
                     
-                    // Clone the model
-                    let flowerModel;
+                    // Generate random position in a circle around the user
+                    const angle = Math.random() * Math.PI * 2; // Random angle (0-360°)
+                    const distance = minDistance + Math.random() * (maxDistance - minDistance);
+                    const x = Math.cos(angle) * distance;
+                    const z = Math.sin(angle) * distance;
+                    const y = minHeight + Math.random() * (maxHeight - minHeight);
+                    
                     try {
-                        flowerModel = flowerInfo.model.clone();
+                        // Clone the model
+                        const flowerModel = flowerInfo.model.clone();
+                        
+                        // Set position
+                        flowerModel.position.set(x, y, z);
+                        
+                        // Random scale with some variety
+                        const scale = (0.4 + Math.random() * 0.6) * flowerInfo.scale;
+                        flowerModel.scale.set(scale, scale, scale);
+                        
+                        // Random rotation
+                        flowerModel.rotation.y = Math.random() * Math.PI * 2;
+                        
+                        // Add to scene
+                        scene.add(flowerModel);
+                        
+                        // Store animation data for this flower
+                        flowerData.push({
+                            model: flowerModel,
+                            swaySpeed: 0.5 + Math.random() * 1.5, // Random sway speed
+                            swayAmount: 0.05 + Math.random() * 0.15, // Random sway amount
+                            swayDirection: Math.random() > 0.5 ? 1 : -1, // Random direction
+                            bobSpeed: 0.3 + Math.random() * 0.7, // Random bobbing speed
+                            bobAmount: 0.03 + Math.random() * 0.05, // Random bob amount
+                            initialPosition: flowerModel.position.clone(),
+                            initialRotation: flowerModel.rotation.clone()
+                        });
+                        
+                        debugLog(`Placed ${flowerInfo.name} at (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})`);
+                        
                     } catch (e) {
                         console.error("Error cloning model:", e);
-                        createFallbackFlower(i);
+                        debugLog(`Error placing flower ${i}`);
                         continue;
                     }
-                    
-                    // Set initial position (under ground)
-                    flowerModel.position.set(x, -1.5, z);
-                    
-                    // Set scale
-                    const scale = (0.5 + Math.random() * 0.3) * flowerInfo.scale;
-                    flowerModel.scale.set(scale, scale, scale);
-                    
-                    // Set random rotation
-                    flowerModel.rotation.y = Math.random() * Math.PI * 2;
-                    
-                    // Add to scene
-                    scene.add(flowerModel);
-                    
-                    // Store for animation
-                    flowers.push({
-                        model: flowerModel,
-                        growStartTime: Date.now() + 1000 + Math.random() * 5000,
-                        growDuration: 3000 + Math.random() * 2000,
-                        startY: -1.5,
-                        targetY: -0.5,
-                        swayStartTime: Date.now() + 4000 + Math.random() * 2000,
-                        swayAmount: 0.05 + Math.random() * 0.05,
-                        swaySpeed: 0.0005 + Math.random() * 0.0005,
-                        originalRotation: flowerModel.rotation.z
-                    });
                 }
                 
-                // Start flower animations
-                animateFlowers();
-            }
-            
-            // Create a fallback flower (simple shape)
-            function createFallbackFlower(index) {
-                const flowerCount = 15;
-                const radius = 2.5;
-                
-                // Calculate position in a circle
-                const angle = (index / flowerCount) * Math.PI * 2;
-                const randomRadius = radius * (0.3 + Math.random() * 0.7);
-                const x = Math.cos(angle) * randomRadius;
-                const z = Math.sin(angle) * randomRadius;
-                
-                // Create stem
-                const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
-                const stemMaterial = new THREE.MeshBasicMaterial({ color: 0x2ECC71 });
-                const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-                
-                // Create flower head
-                const flowerGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-                const flowerMaterial = new THREE.MeshBasicMaterial({ 
-                    color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5) 
-                });
-                const flowerHead = new THREE.Mesh(flowerGeometry, flowerMaterial);
-                flowerHead.position.y = 0.25;
-                
-                // Group the parts
-                const flowerModel = new THREE.Group();
-                flowerModel.add(stem);
-                flowerModel.add(flowerHead);
-                
-                // Set initial position (under ground)
-                flowerModel.position.set(x, -1.5, z);
-                
-                // Set scale
-                const scale = 0.5 + Math.random() * 0.3;
-                flowerModel.scale.set(scale, scale, scale);
-                
-                // Set random rotation
-                flowerModel.rotation.y = Math.random() * Math.PI * 2;
-                
-                // Add to scene
-                scene.add(flowerModel);
-                
-                // Store for animation
+                // Store flower data for animation
                 flowers.push({
-                    model: flowerModel,
-                    growStartTime: Date.now() + 1000 + Math.random() * 5000,
-                    growDuration: 3000 + Math.random() * 2000,
-                    startY: -1.5,
-                    targetY: -0.5,
-                    swayStartTime: Date.now() + 4000 + Math.random() * 2000,
-                    swayAmount: 0.05 + Math.random() * 0.05,
-                    swaySpeed: 0.0005 + Math.random() * 0.0005,
-                    originalRotation: flowerModel.rotation.z
+                    flowers: flowerData,
+                    startTime: Date.now()
                 });
+                
+                debugLog(`Placed ${flowerData.length} flowers in 360° garden`);
             }
             
-            // Animate flowers growing and swaying
-            function animateFlowers() {
-                // Only run if flowers are placed
-                if (!isPlaced) return;
+            // Update flower animations
+            function updateFlowerAnimations() {
+                if (flowers.length === 0 || !isPlaced) return;
                 
                 const now = Date.now();
+                const elapsed = (now - flowers[0].startTime) / 1000; // Seconds
                 
-                // Update each flower
-                flowers.forEach(flower => {
-                    // Handle grow animation
-                    if (now > flower.growStartTime && now < flower.growStartTime + flower.growDuration) {
-                        const elapsed = now - flower.growStartTime;
-                        const progress = elapsed / flower.growDuration;
-                        
-                        // Elastic easing function
-                        const easedProgress = easeOutElastic(progress);
-                        
-                        // Update position
-                        flower.model.position.y = flower.startY + (flower.targetY - flower.startY) * easedProgress;
-                    } else if (now >= flower.growStartTime + flower.growDuration) {
-                        // Ensure final position
-                        flower.model.position.y = flower.targetY;
-                    }
+                // Animate each flower with natural swaying motion
+                flowers[0].flowers.forEach(flower => {
+                    // Sway flowers like in the wind
+                    // Apply rotation sway (rotate around Y axis to simulate wind)
+                    flower.model.rotation.z = flower.initialRotation.z + 
+                                             Math.sin(elapsed * flower.swaySpeed) * 
+                                             flower.swayAmount * flower.swayDirection;
                     
-                    // Handle sway animation
-                    if (now > flower.swayStartTime) {
-                        const swayTime = (now - flower.swayStartTime) * flower.swaySpeed;
-                        const swayAmount = Math.sin(swayTime) * flower.swayAmount;
-                        
-                        // Apply sway to rotation
-                        flower.model.rotation.z = flower.originalRotation + swayAmount;
-                    }
+                    // Slightly sway position for more natural movement
+                    flower.model.position.x = flower.initialPosition.x + 
+                                             Math.sin(elapsed * flower.bobSpeed * 0.7) * 
+                                             flower.bobAmount;
+                    
+                    // Add subtle bobbing motion
+                    flower.model.position.y = flower.initialPosition.y + 
+                                             Math.sin(elapsed * flower.bobSpeed) * 
+                                             flower.bobAmount * 0.5;
                 });
-                
-                // Continue animation
-                requestAnimationFrame(animateFlowers);
-            }
-            
-            // Elastic easing function for flower growth
-            function easeOutElastic(t) {
-                const p = 0.3;
-                return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
             }
             
             // Remove all flowers
             function removeFlowers() {
                 // Remove from scene
-                flowers.forEach(flower => {
-                    scene.remove(flower.model);
+                flowers.forEach(bouquet => {
+                    bouquet.flowers.forEach(flower => {
+                        scene.remove(flower.model);
+                    });
                 });
                 
                 // Clear array
                 flowers = [];
                 
-                // Hide ground
-                window.ground.visible = false;
+                debugLog('Flowers removed');
             }
             
             // Function to load responses
             function loadResponses() {
                 // Default responses
                 window.responses = [
-                    { name: "Jane", message: "We need more green space in our neighborhood!" },
-                    { name: "Carlos", message: "It would bring our community together." },
+                    { name: "Jane", message: "Probably too much red tape." },
+                    { name: "Carlos", message: "It would be a better use of the empty lot." },
                     { name: "Aisha", message: "I'd love to grow vegetables with my neighbors." }
                 ];
                 
@@ -781,7 +1001,7 @@
                     .then(data => {
                         if (data.result === 'success' && data.responses && data.responses.length > 0) {
                             window.responses = data.responses;
-                            console.log(`Loaded ${window.responses.length} responses`);
+                            debugLog(`Loaded ${window.responses.length} responses`);
                         }
                     })
                     .catch(error => {
