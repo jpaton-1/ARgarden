@@ -3,10 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Community Garden AR - Marker Based</title>
+    <title>Community Garden AR - Tap to Place</title>
     
-    <!-- A-Frame and AR.js for marker-based AR -->
+    <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <!-- AR.js with image tracking and location-based -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
@@ -34,6 +35,94 @@
             font-family: Arial, Helvetica, sans-serif;
         }
         
+        .placement-ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none; /* Allow clicks to pass through to AR scene */
+        }
+        
+        .placement-instructions {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            max-width: 80%;
+            margin-bottom: 20px;
+        }
+        
+        .placement-crosshair {
+            width: 50px;
+            height: 50px;
+            border: 2px solid white;
+            border-radius: 50%;
+            position: relative;
+            pointer-events: none;
+        }
+        
+        .placement-crosshair::before, .placement-crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+        }
+        
+        .placement-crosshair::before {
+            width: 2px;
+            height: 20px;
+            top: 15px;
+            left: 24px;
+        }
+        
+        .placement-crosshair::after {
+            width: 20px;
+            height: 2px;
+            top: 24px;
+            left: 15px;
+        }
+        
+        /* Control buttons */
+        .ar-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 15;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .ar-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            margin-top: 10px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .ar-button.confirm-placement {
+            display: block;
+        }
+        
+        .reset-button {
+            background: #f44336;
+        }
+        
         /* Response form styling */
         .response-form {
             position: fixed;
@@ -48,7 +137,7 @@
             color: white;
             font-family: Arial, sans-serif;
             z-index: 1000;
-            display: none; /* Hidden by default, shown when marker is detected */
+            display: none; /* Hidden by default */
         }
         
         .response-form input,
@@ -78,10 +167,6 @@
             width: 100%;
         }
         
-        .response-form button:hover {
-            background: #3e8e41;
-        }
-        
         .response-form h3 {
             margin-top: 0;
             text-align: center;
@@ -97,55 +182,143 @@
         .response-toggle {
             position: fixed;
             bottom: 20px;
-            right: 20px;
+            left: 20px;
             background: #4CAF50;
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 50%;
             width: 60px;
             height: 60px;
+            border-radius: 50%;
             font-size: 24px;
             cursor: pointer;
-            z-index: 1000;
-            display: none; /* Hidden by default, shown when marker is detected */
+            z-index: 15;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         
-        /* Marker instructions */
-        .marker-instructions {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 10px;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            z-index: 999;
-            max-width: 80%;
-            font-size: 16px;
-        }
-        
-        /* Print marker button */
-        .print-marker-btn {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
-            z-index: 999;
+        .hidden {
+            display: none !important;
         }
     </style>
     
     <script>
-        // Flower model placer component
+        // Register custom A-Frame component for tap-to-place functionality
+        AFRAME.registerComponent('tap-to-place', {
+            init: function() {
+                this.camera = document.querySelector('a-entity[camera]');
+                this.canvasEl = document.querySelector('canvas.a-canvas');
+                this.placedEntities = [];
+                this.isPlaced = false;
+                
+                // Add event listener for screen touches
+                this.canvasEl.addEventListener('click', this.onCanvasClick.bind(this));
+                
+                // Listen for the confirmation button click
+                document.querySelector('.confirm-placement').addEventListener('click', this.confirmPlacement.bind(this));
+                
+                // Listen for reset button click
+                document.querySelector('.reset-button').addEventListener('click', this.resetPlacement.bind(this));
+            },
+            
+            onCanvasClick: function(event) {
+                // Don't process if already placed or UI elements were clicked
+                if (this.isPlaced) return;
+                
+                // Create a ray from the camera position outward
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+                
+                // Get canvas dimensions
+                const canvasBounds = this.canvasEl.getBoundingClientRect();
+                
+                // Calculate the normalized mouse position (-1 to 1 for both x and y)
+                mouse.x = ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1;
+                mouse.y = -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1;
+                
+                // Update the raycaster with the camera and mouse position
+                raycaster.setFromCamera(mouse, this.camera.object3D.children[0]);
+                
+                // Create a position approximately 3 meters in front of the camera along the ray
+                const pos = new THREE.Vector3();
+                raycaster.ray.at(3, pos);
+                
+                // Position the garden preview at this location
+                const preview = document.getElementById('garden-preview');
+                preview.object3D.position.copy(pos);
+                
+                // Make preview visible
+                preview.setAttribute('visible', true);
+                
+                // Add shadow support if needed
+                if (!preview.hasAttribute('shadow')) {
+                    preview.setAttribute('shadow', 'cast: true; receive: true');
+                }
+                
+                // Show the confirm button
+                document.querySelector('.confirm-placement').style.display = 'flex';
+            },
+            
+            confirmPlacement: function() {
+                if (this.isPlaced) return;
+                
+                // Get the preview position
+                const preview = document.getElementById('garden-preview');
+                const position = preview.object3D.position;
+                
+                // Create the actual garden at the preview position
+                const garden = document.getElementById('garden-container');
+                garden.setAttribute('position', `${position.x} ${position.y} ${position.z}`);
+                garden.setAttribute('visible', true);
+                
+                // Hide preview and UI elements
+                preview.setAttribute('visible', false);
+                document.querySelector('.placement-ui').style.display = 'none';
+                document.querySelector('.confirm-placement').style.display = 'none';
+                
+                // Show the reset button and response toggle
+                document.querySelector('.reset-button').style.display = 'flex';
+                document.querySelector('.response-toggle').style.display = 'flex';
+                
+                // Mark as placed
+                this.isPlaced = true;
+                
+                // Start the flower animations
+                const flowerComponent = garden.components['flower-garden'];
+                if (flowerComponent) {
+                    flowerComponent.placeFlowers();
+                }
+            },
+            
+            resetPlacement: function() {
+                if (!this.isPlaced) return;
+                
+                // Hide the garden
+                const garden = document.getElementById('garden-container');
+                garden.setAttribute('visible', false);
+                
+                // Reset the flower garden component
+                const flowerComponent = garden.components['flower-garden'];
+                if (flowerComponent) {
+                    flowerComponent.resetFlowers();
+                }
+                
+                // Show placement UI again
+                document.querySelector('.placement-ui').style.display = 'flex';
+                document.querySelector('.confirm-placement').style.display = 'none';
+                
+                // Hide the reset button and response components
+                document.querySelector('.reset-button').style.display = 'none';
+                document.querySelector('.response-toggle').style.display = 'none';
+                document.getElementById('response-form').style.display = 'none';
+                
+                // Reset flag
+                this.isPlaced = false;
+            }
+        });
+        
+        // Flower garden component
         AFRAME.registerComponent('flower-garden', {
             schema: {
                 flowerCount: {type: 'number', default: 15},
@@ -153,38 +326,15 @@
             },
             
             init: function() {
-                // Store reference
-                const component = this;
-                
-                // Flag to ensure we only place flowers once
+                // Initialize
                 this.flowersPlaced = false;
-                
-                // Listen for marker found event
-                const marker = document.querySelector('a-marker');
-                if (marker) {
-                    marker.addEventListener('markerFound', function() {
-                        // Only place flowers once
-                        if (!component.flowersPlaced) {
-                            component.placeFlowers();
-                            component.flowersPlaced = true;
-                            
-                            // Show response toggle button
-                            document.querySelector('.response-toggle').style.display = 'block';
-                            
-                            // Hide marker instructions
-                            document.querySelector('.marker-instructions').style.display = 'none';
-                        }
-                    });
-                    
-                    marker.addEventListener('markerLost', function() {
-                        // Hide response form when marker is lost
-                        document.getElementById('response-form').style.display = 'none';
-                        document.querySelector('.response-toggle').textContent = '+';
-                    });
-                }
+                this.flowers = [];
+                this.responseInterval = null;
             },
             
             placeFlowers: function() {
+                if (this.flowersPlaced) return;
+                
                 // Path to models - adjust to your server location
                 const basePath = './models/'; // Update this path to match your server structure
                 
@@ -262,15 +412,38 @@
                     });
                     
                     this.el.appendChild(flower);
+                    this.flowers.push(flower);
                     
                     // Log flower creation for debugging
                     console.log(`Placed flower at (${x}, -0.5, ${z})`);
                 }
                 
                 console.log(`Placed ${this.data.flowerCount} flowers in the garden`);
+                this.flowersPlaced = true;
                 
                 // Start loading and cycling responses
                 this.loadResponses();
+            },
+            
+            resetFlowers: function() {
+                // Remove all flowers
+                this.flowers.forEach(flower => {
+                    if (flower.parentNode) {
+                        flower.parentNode.removeChild(flower);
+                    }
+                });
+                
+                // Clear arrays
+                this.flowers = [];
+                
+                // Clear response cycling
+                if (this.responseInterval) {
+                    clearInterval(this.responseInterval);
+                    this.responseInterval = null;
+                }
+                
+                // Reset flower placement flag
+                this.flowersPlaced = false;
             },
             
             loadResponses: function() {
@@ -347,17 +520,26 @@
         <div>
             <h1>Community Garden AR</h1>
             <p>Loading... Please allow camera access when prompted.</p>
-            <p>This experience uses AR markers to place the virtual garden.</p>
+            <p>You'll be able to place the garden anywhere in your space!</p>
         </div>
     </div>
     
-    <!-- Marker instructions -->
-    <div class="marker-instructions">
-        Point your camera at the Hiro marker to see the virtual community garden
+    <!-- Placement UI -->
+    <div class="placement-ui">
+        <div class="placement-instructions">
+            Tap on the screen to place the garden, then confirm with the checkmark button
+        </div>
+        <div class="placement-crosshair"></div>
     </div>
     
-    <!-- Print marker button -->
-    <button class="print-marker-btn" onclick="window.open('https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png', '_blank')">View Marker</button>
+    <!-- Control buttons -->
+    <div class="ar-controls">
+        <button class="ar-button confirm-placement" style="display: none;">✓</button>
+        <button class="ar-button reset-button" style="display: none;">↺</button>
+    </div>
+    
+    <!-- Response toggle button -->
+    <button class="response-toggle">+</button>
     
     <!-- Response form -->
     <div id="response-form" class="response-form">
@@ -374,25 +556,42 @@
         <div id="response-status" class="response-status"></div>
     </div>
     
-    <!-- Toggle button for the form -->
-    <button id="response-toggle" class="response-toggle">+</button>
-    
-    <!-- A-Frame scene with marker-based AR -->
+    <!-- A-Frame scene -->
     <a-scene 
         embedded
-        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false"
         renderer="logarithmicDepthBuffer: true; precision: medium;"
-        vr-mode-ui="enabled: false">
+        tap-to-place>
         
-        <!-- Use the default 'hiro' marker pattern -->
-        <a-marker preset="hiro">
-            <!-- Add a reference ground plane -->
+        <!-- Assets preloading -->
+        <a-assets>
+            <!-- In a real implementation, preload your models here -->
+        </a-assets>
+        
+        <!-- Garden preview (shown before placement) -->
+        <a-entity id="garden-preview" visible="false">
+            <a-circle 
+                material="color: #7c5c3c; opacity: 0.5; side: double"
+                rotation="-90 0 0"
+                radius="5"
+                position="0 0 0">
+            </a-circle>
+        </a-entity>
+        
+        <!-- Garden container (hidden until placed) -->
+        <a-entity 
+            id="garden-container" 
+            flower-garden="flowerCount: 20; radius: 4"
+            visible="false">
+            
+            <!-- Ground plane -->
             <a-circle 
                 id="ground-reference"
                 material="color: #7c5c3c; opacity: 0.3; side: double"
                 rotation="-90 0 0"
                 radius="5"
-                position="0 -0.1 0">
+                position="0 0 0">
             </a-circle>
             
             <!-- Text floating above the garden -->
@@ -418,17 +617,28 @@
                 scale="0.8 0.8 0.8"
                 animation="property: position; to: 0 1.0 0; dur: 4000; easing: easeInOutSine; loop: true; dir: alternate; delay: 1500;">
             </a-text>
-            
-            <!-- 3D Flower Garden -->
-            <a-entity 
-                id="flower-container"
-                position="0 0 0"
-                flower-garden="flowerCount: 20; radius: 4">
-            </a-entity>
-        </a-marker>
+        </a-entity>
         
-        <!-- Camera -->
-        <a-entity camera></a-entity>
+        <!-- Camera & cursor -->
+        <a-entity camera position="0 1.6 0" look-controls>
+            <a-entity cursor="fuse: false"
+                      position="0 0 -1"
+                      geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                      material="color: white; shader: flat"
+                      visible="false">
+            </a-entity>
+        </a-entity>
+        
+        <!-- Ambient light -->
+        <a-light type="ambient" color="#BBB" intensity="0.5"></a-light>
+        
+        <!-- Directional light casting shadows -->
+        <a-light type="directional" 
+                 color="#FFF" 
+                 intensity="0.8" 
+                 position="-1 1 1"
+                 cast-shadow="true">
+        </a-light>
     </a-scene>
     
     <script>
@@ -445,7 +655,7 @@
             }, 3000);
             
             // Response form toggle
-            const responseToggle = document.getElementById('response-toggle');
+            const responseToggle = document.querySelector('.response-toggle');
             const responseForm = document.getElementById('response-form');
             
             responseToggle.addEventListener('click', function() {
@@ -503,6 +713,15 @@
                         responseForm.style.display = 'none';
                         responseToggle.textContent = '+';
                     }, 3000);
+                    
+                    // Add to local responses if available
+                    const gardenEl = document.getElementById('garden-container');
+                    if (gardenEl && gardenEl.components['flower-garden']) {
+                        const flowerComponent = gardenEl.components['flower-garden'];
+                        if (flowerComponent.responses) {
+                            flowerComponent.responses.push({name, message});
+                        }
+                    }
                 })
                 .catch(error => {
                     console.error('Error:', error);
