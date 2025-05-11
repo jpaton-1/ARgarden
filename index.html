@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Garden AR - Surface Tracking</title>
+    
+    <!-- Using A-Frame and AR.js with surface detection instead of GPS -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- Include Mind-AR for better surface tracking -->
+    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.0/dist/mindar-image-aframe.prod.js"></script>
+    
+    <style>
+        .arjs-loader {
+            position: fixed;
+            z-index: 999;
+            overflow: show;
+            margin: auto;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .arjs-loader div {
+            text-align: center;
+            color: white;
+            max-width: 80%;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        
+        /* Instructions overlay */
+        .instructions {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            z-index: 999;
+            max-width: 80%;
+        }
+        
+        /* Response form styling */
+        .response-form {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+        
+        .response-form input,
+        .response-form textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            font-family: Arial, sans-serif;
+        }
+        
+        .response-form textarea {
+            height: 80px;
+            resize: none;
+        }
+        
+        .response-form button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+        
+        .response-form button:hover {
+            background: #3e8e41;
+        }
+        
+        .response-form h3 {
+            margin-top: 0;
+            text-align: center;
+        }
+        
+        .response-status {
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+        }
+        
+        /* Control buttons */
+        .ar-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            z-index: 999;
+        }
+        
+        .ar-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .ar-button:hover {
+            background: #3e8e41;
+        }
+    </style>
+    
+    <script>
+        // Register a component to place the garden on a detected surface
+        AFRAME.registerComponent('surface-garden', {
+            schema: {
+                flowerCount: {type: 'number', default: 15},
+                radius: {type: 'number', default: 3}
+            },
+            
+            init: function() {
+                // Store component reference
+                const component = this;
+                
+                // Initialize state
+                this.isPlaced = false;
+                this.surfaceNormal = new THREE.Vector3(0, 1, 0); // Default to upward normal
+                
+                // Register event handlers
+                document.getElementById('place-button').addEventListener('click', () => {
+                    if (!this.isPlaced) {
+                        this.placementPosition = this.el.object3D.position.clone();
+                        this.placeGarden();
+                        this.isPlaced = true;
+                        
+                        // Update UI
+                        document.getElementById('place-button').style.backgroundColor = '#666';
+                        document.getElementById('place-button').textContent = '✓';
+                        
+                        // Show the response form toggle
+                        document.getElementById('response-toggle').style.display = 'block';
+                        
+                        // Update instructions
+                        const instructions = document.querySelector('.instructions');
+                        instructions.textContent = 'Garden placed! Walk around to explore it in 3D.';
+                        
+                        // Make instructions disappear after a few seconds
+                        setTimeout(() => {
+                            instructions.style.opacity = '0';
+                            instructions.style.transition = 'opacity 1s ease-out';
+                        }, 3000);
+                    }
+                });
+                
+                // Listen for ray hit events from AR.js
+                this.el.addEventListener('raycaster-intersection', (e) => {
+                    if (this.isPlaced) return; // Skip if already placed
+                    
+                    // Get the position of the intersection
+                    const intersection = e.detail.intersections[0];
+                    if (intersection) {
+                        const point = intersection.point;
+                        const face = intersection.face;
+                        
+                        // Update position to place on the surface
+                        this.el.object3D.position.copy(point);
+                        
+                        // Store normal direction if available
+                        if (face && face.normal) {
+                            this.surfaceNormal.copy(face.normal);
+                        }
+                        
+                        // Update place button to show it's ready
+                        document.getElementById('place-button').style.backgroundColor = '#4CAF50';
+                    }
+                });
+            },
+            
+            placeGarden: function() {
+                // Path to models
+                const basePath = './models/';
+                
+                // Local flower model files from repository
+                const flowerModels = [
+                    '6 Orchid.glb',
+                    '7 Poppy.glb',
+                    '8 Iris.glb',
+                    '13 Marigold.glb',
+                    '16 Lavender.glb',
+                    '17 Hibiscus.glb',
+                    '20 Violet.glb',
+                    '24 Cosmos.glb',
+                    '25 Snapdragon.glb',
+                    '26 Morning Glory.glb',
+                    '27 Anemone.glb',
+                    '30 Primrose.glb'
+                ];
+                
+                // Create a circular ground plane
+                const ground = document.createElement('a-circle');
+                ground.setAttribute('id', 'garden-ground');
+                ground.setAttribute('material', 'color: #7c5c3c; opacity: 0.6; side: double');
+                ground.setAttribute('rotation', '-90 0 0'); // Face upward
+                ground.setAttribute('radius', '5');
+                ground.setAttribute('position', '0 0.01 0'); // Slightly above the surface to avoid z-fighting
+                this.el.appendChild(ground);
+                
+                // Add text elements
+                const gardenText = document.createElement('a-text');
+                gardenText.setAttribute('id', 'garden-text');
+                gardenText.setAttribute('value', 'Why can\'t this be a community garden?');
+                gardenText.setAttribute('color', 'white');
+                gardenText.setAttribute('align', 'center');
+                gardenText.setAttribute('width', '4');
+                gardenText.setAttribute('position', '0 1.5 0');
+                gardenText.setAttribute('look-at', '[camera]');
+                gardenText.setAttribute('animation', 'property: position; to: 0 1.7 0; dur: 3000; easing: easeInOutSine; loop: true; dir: alternate;');
+                this.el.appendChild(gardenText);
+                
+                // Response display text
+                const responseDisplay = document.createElement('a-text');
+                responseDisplay.setAttribute('id', 'response-display');
+                responseDisplay.setAttribute('value', '');
+                responseDisplay.setAttribute('color', '#B3FFAE');
+                responseDisplay.setAttribute('align', 'center');
+                responseDisplay.setAttribute('width', '3.5');
+                responseDisplay.setAttribute('position', '0 0.9 0');
+                responseDisplay.setAttribute('scale', '0.8 0.8 0.8');
+                responseDisplay.setAttribute('look-at', '[camera]');
+                responseDisplay.setAttribute('animation', 'property: position; to: 0 1.0 0; dur: 4000; easing: easeInOutSine; loop: true; dir: alternate; delay: 1500;');
+                this.el.appendChild(responseDisplay);
+                
+                // Place flowers in a circular pattern on the ground
+                for (let i = 0; i < this.data.flowerCount; i++) {
+                    // Calculate position in a circle with some randomness
+                    const angle = (i / this.data.flowerCount) * Math.PI * 2;
+                    const randomRadius = this.data.radius * (0.3 + Math.random() * 0.7);
+                    const x = Math.cos(angle) * randomRadius;
+                    const z = Math.sin(angle) * randomRadius;
+                    
+                    // Randomize model selection
+                    const modelIndex = Math.floor(Math.random() * flowerModels.length);
+                    const modelUrl = basePath + flowerModels[modelIndex];
+                    
+                    // Create flower entity
+                    const flower = document.createElement('a-entity');
+                    flower.setAttribute('gltf-model', modelUrl);
+                    flower.setAttribute('class', 'flower-model');
+                    
+                    // Start position below ground
+                    flower.setAttribute('position', {x: x, y: -1.5, z: z});
+                    
+                    // Random scale, but keep it proportional
+                    const scale = 0.5 + Math.random() * 0.3;
+                    flower.setAttribute('scale', {
+                        x: scale,
+                        y: scale,
+                        z: scale
+                    });
+                    
+                    flower.setAttribute('rotation', {
+                        x: 0, 
+                        y: Math.random() * 360, 
+                        z: 0
+                    });
+                    
+                    // Add grow-up animation
+                    flower.setAttribute('animation__grow', {
+                        property: 'position',
+                        from: `${x} -1.5 ${z}`,
+                        to: `${x} -0.5 ${z}`,
+                        dur: 3000 + Math.random() * 2000,
+                        delay: 1000 + Math.random() * 5000,
+                        easing: 'easeOutElastic',
+                        loop: false
+                    });
+                    
+                    // Add subtle sway animation
+                    flower.setAttribute('animation__sway', {
+                        property: 'rotation',
+                        from: `0 ${Math.random() * 360} 0`,
+                        to: `0 ${Math.random() * 360 + 15} 0`,
+                        dur: 10000 + Math.random() * 5000,
+                        delay: 4000 + Math.random() * 2000,
+                        easing: 'easeInOutSine',
+                        loop: true,
+                        dir: 'alternate'
+                    });
+                    
+                    this.el.appendChild(flower);
+                }
+                
+                console.log(`Placed ${this.data.flowerCount} flowers in the garden`);
+                
+                // Start cycling responses
+                this.loadResponses();
+            },
+            
+            loadResponses: function() {
+                // Default responses
+                this.responses = [
+                    { name: "Jane", message: "We need more green space in our neighborhood!" },
+                    { name: "Carlos", message: "It would bring our community together." },
+                    { name: "Aisha", message: "I'd love to grow vegetables with my neighbors." }
+                ];
+                
+                // URL of your deployed Google Apps Script web app with action parameter
+                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses';
+                
+                // Attempt to load real responses
+                fetch(scriptURL)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.result === 'success' && data.responses && data.responses.length > 0) {
+                            this.responses = data.responses;
+                            console.log(`Loaded ${this.responses.length} responses`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading responses:', error);
+                    })
+                    .finally(() => {
+                        // Start cycling responses, even if using defaults
+                        if (this.responses.length > 0) {
+                            this.startResponseCycle();
+                        }
+                    });
+            },
+            
+            startResponseCycle: function() {
+                // Show first response
+                this.showNextResponse();
+                
+                // Set interval to cycle through responses
+                this.responseInterval = setInterval(() => this.showNextResponse(), 12000); // Every 12 seconds
+            },
+            
+            showNextResponse: function() {
+                if (!this.responses || this.responses.length === 0) return;
+                
+                // Get a random index that's different from the current one
+                let newIndex;
+                do {
+                    newIndex = Math.floor(Math.random() * this.responses.length);
+                } while (this.responses.length > 1 && newIndex === this.currentResponseIndex);
+                
+                this.currentResponseIndex = newIndex;
+                const response = this.responses[this.currentResponseIndex];
+                
+                // Update the response display text
+                const responseDisplay = document.getElementById('response-display');
+                if (responseDisplay) {
+                    responseDisplay.setAttribute('value', `"${response.message}"\n- ${response.name}`);
+                    
+                    // Add a brief fade animation
+                    responseDisplay.setAttribute('animation__fade', {
+                        property: 'opacity',
+                        from: 0,
+                        to: 1,
+                        dur: 2000,
+                        easing: 'easeOutQuad'
+                    });
+                }
+            }
+        });
+        
+        // Implement surface detection raycaster component 
+        AFRAME.registerComponent('surface-detector', {
+            init: function() {
+                // Create a new raycaster for continuous detection
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                
+                // Reference to the garden container
+                this.gardenContainer = document.getElementById('garden-container');
+                
+                // Track where raycast is hitting 
+                this.el.addEventListener('raycaster-intersection', (e) => {
+                    this.el.setAttribute('color', '#4CAF50');
+                });
+                
+                this.el.addEventListener('raycaster-intersection-cleared', (e) => {
+                    this.el.setAttribute('color', '#FF4444');
+                });
+            }
+        });
+    </script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    <div class="arjs-loader">
+        <div>
+            <h1>Community Garden AR</h1>
+            <p>Loading... Please allow camera access when prompted.</p>
+            <p>This experience uses surface detection to place the garden on any horizontal surface.</p>
+        </div>
+    </div>
+    
+    <!-- Instructions overlay -->
+    <div class="instructions">
+        Scan your environment slowly, then tap the green placement button when you find a good spot for the garden.
+    </div>
+    
+    <!-- Response form -->
+    <div id="response-form" class="response-form">
+        <h3>Share Your Thoughts</h3>
+        <form id="garden-response-form">
+            <label for="name">Your Name:</label>
+            <input type="text" id="name" name="name" required>
+            
+            <label for="message">Why do you think this should be a community garden?</label>
+            <textarea id="message" name="message" required></textarea>
+            
+            <button type="submit">Submit</button>
+        </form>
+        <div id="response-status" class="response-status"></div>
+    </div>
+    
+    <!-- Control buttons -->
+    <div class="ar-controls">
+        <button id="place-button" class="ar-button">📍</button>
+        <button id="response-toggle" class="ar-button" style="display: none">+</button>
+    </div>
+    
+    <a-scene 
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: true; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        renderer="logarithmicDepthBuffer: true; precision: medium;"
+        inspector="url: https://cdn.jsdelivr.net/gh/aframevr/aframe-inspector@master/dist/aframe-inspector.min.js">
+        
+        <!-- Surface detection cursor -->
+        <a-entity 
+            id="surface-cursor" 
+            cursor="rayOrigin: mouse"
+            raycaster="objects: .collidable; far: 10">
+        </a-entity>
+        
+        <!-- Garden container to be placed on surface -->
+        <a-entity 
+            id="garden-container"
+            class="collidable"
+            position="0 0 0"
+            surface-garden="flowerCount: 20; radius: 4">
+        </a-entity>
+        
+        <!-- Surface detection planes - invisible but used for collisions -->
+        <a-plane 
+            id="floor-plane" 
+            class="collidable" 
+            position="0 -1.5 0" 
+            rotation="-90 0 0" 
+            width="100" 
+            height="100" 
+            color="#666"
+            opacity="0.0" 
+            surface-detector>
+        </a-plane>
+        
+        <!-- Default camera with cursor -->
+        <a-entity 
+            camera
+            look-controls="pointerLockEnabled: false"
+            raycaster="objects: .collidable; direction: 0 -1 0; origin: 0 0 0; far: 10">
+        </a-entity>
+    </a-scene>
+    
+    <script>
+        // Loader handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const arjsLoader = document.querySelector('.arjs-loader');
+            
+            // Hide loader after a short delay
+            setTimeout(() => {
+                if (arjsLoader) {
+                    arjsLoader.style.display = 'none';
+                }
+            }, 3000);
+            
+            // Response form toggle
+            const responseToggle = document.getElementById('response-toggle');
+            const responseForm = document.getElementById('response-form');
+            
+            responseToggle.addEventListener('click', function() {
+                const isVisible = responseForm.style.display === 'block';
+                responseForm.style.display = isVisible ? 'none' : 'block';
+                responseToggle.textContent = isVisible ? '+' : 'x';
+            });
+            
+            // Form submission handling
+            const gardenForm = document.getElementById('garden-response-form');
+            const statusDiv = document.getElementById('response-status');
+            
+            gardenForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Get form data
+                const name = document.getElementById('name').value;
+                const message = document.getElementById('message').value;
+                const timestamp = new Date().toLocaleString();
+                
+                // Validate input
+                if (!name || !message) {
+                    statusDiv.textContent = 'Please fill out all fields.';
+                    statusDiv.style.color = '#ff6b6b';
+                    return;
+                }
+                
+                // Update status
+                statusDiv.textContent = 'Submitting...';
+                statusDiv.style.color = 'white';
+                
+                // URL of your deployed Google Apps Script web app
+                const scriptURL = 'https://script.google.com/macros/s/AKfycbxBT2wnnk8feI8gZiMBKtrAPIX0DY5E6Qry4ayF8KVEa4v5hQHJPFeUSPdObuospRF0/exec';
+                
+                // Prepare URL with parameters
+                const url = new URL(scriptURL);
+                url.searchParams.append('name', name);
+                url.searchParams.append('message', message);
+                url.searchParams.append('timestamp', timestamp);
+                
+                // Make the fetch request
+                fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors' // Required for Google Apps Script
+                })
+                .then(() => {
+                    // Success handling
+                    statusDiv.textContent = 'Thank you for sharing your thoughts!';
+                    statusDiv.style.color = '#4CAF50';
+                    gardenForm.reset();
+                    
+                    // Hide form after successful submission
+                    setTimeout(() => {
+                        responseForm.style.display = 'none';
+                        responseToggle.textContent = '+';
+                    }, 3000);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    statusDiv.textContent = 'Network error. Please try again.';
+                    statusDiv.style.color = '#ff6b6b';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
