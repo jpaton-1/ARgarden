@@ -3,14 +3,20 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Community Garden AR - Tap to Place</title>
+    <title>Community Garden AR - Mobile Friendly</title>
     
     <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <!-- AR.js with image tracking and location-based -->
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- AR.js for camera access -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
     
     <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
         .arjs-loader {
             position: fixed;
             z-index: 999;
@@ -33,100 +39,85 @@
             color: white;
             max-width: 80%;
             font-family: Arial, Helvetica, sans-serif;
+            padding: 20px;
         }
         
-        .placement-ui {
+        /* Instructions */
+        #instructions {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            pointer-events: none; /* Allow clicks to pass through to AR scene */
-        }
-        
-        .placement-instructions {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.7);
             color: white;
-            padding: 15px 20px;
+            padding: 10px 15px;
             border-radius: 10px;
             text-align: center;
-            font-family: Arial, sans-serif;
+            z-index: 100;
             max-width: 80%;
-            margin-bottom: 20px;
         }
         
-        .placement-crosshair {
-            width: 50px;
-            height: 50px;
-            border: 2px solid white;
-            border-radius: 50%;
-            position: relative;
-            pointer-events: none;
-        }
-        
-        .placement-crosshair::before, .placement-crosshair::after {
-            content: '';
-            position: absolute;
-            background: white;
-        }
-        
-        .placement-crosshair::before {
-            width: 2px;
-            height: 20px;
-            top: 15px;
-            left: 24px;
-        }
-        
-        .placement-crosshair::after {
-            width: 20px;
-            height: 2px;
-            top: 24px;
-            left: 15px;
-        }
-        
-        /* Control buttons */
-        .ar-controls {
+        /* Place button */
+        #place-button {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            z-index: 15;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .ar-button {
+            width: 60px;
+            height: 60px;
             background: #4CAF50;
             color: white;
             border: none;
-            margin-top: 10px;
-            width: 60px;
-            height: 60px;
             border-radius: 50%;
             font-size: 24px;
-            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 100;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         
-        .ar-button.confirm-placement {
-            display: block;
-        }
-        
-        .reset-button {
-            background: #f44336;
-        }
-        
-        /* Response form styling */
-        .response-form {
+        /* Reset button */
+        #reset-button {
             position: fixed;
             bottom: 20px;
+            right: 90px;
+            width: 60px;
+            height: 60px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        /* Response toggle */
+        #response-toggle {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        /* Response form */
+        #response-form {
+            position: fixed;
+            bottom: 90px;
             left: 50%;
             transform: translateX(-50%);
             width: 90%;
@@ -135,13 +126,12 @@
             border-radius: 10px;
             padding: 15px;
             color: white;
-            font-family: Arial, sans-serif;
-            z-index: 1000;
-            display: none; /* Hidden by default */
+            z-index: 100;
+            display: none;
         }
         
-        .response-form input,
-        .response-form textarea {
+        #response-form input,
+        #response-form textarea {
             width: 100%;
             padding: 8px;
             margin: 5px 0 10px;
@@ -151,12 +141,12 @@
             font-family: Arial, sans-serif;
         }
         
-        .response-form textarea {
+        #response-form textarea {
             height: 80px;
             resize: none;
         }
         
-        .response-form button {
+        #response-form button {
             background: #4CAF50;
             color: white;
             border: none;
@@ -167,382 +157,54 @@
             width: 100%;
         }
         
-        .response-form h3 {
+        #response-form h3 {
             margin-top: 0;
             text-align: center;
         }
         
-        .response-status {
+        #response-status {
             margin-top: 10px;
             text-align: center;
             font-weight: bold;
             min-height: 20px;
         }
         
-        .response-toggle {
+        /* Touch target overlay for tapping */
+        #touch-overlay {
             position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 15;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-        
-        .hidden {
-            display: none !important;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 99;
+            /* Important: we'll make this transparent but still catch touch events */
+            background: rgba(0, 0, 0, 0.01);
         }
     </style>
-    
-    <script>
-        // Register custom A-Frame component for tap-to-place functionality
-        AFRAME.registerComponent('tap-to-place', {
-            init: function() {
-                this.camera = document.querySelector('a-entity[camera]');
-                this.canvasEl = document.querySelector('canvas.a-canvas');
-                this.placedEntities = [];
-                this.isPlaced = false;
-                
-                // Add event listener for screen touches
-                this.canvasEl.addEventListener('click', this.onCanvasClick.bind(this));
-                
-                // Listen for the confirmation button click
-                document.querySelector('.confirm-placement').addEventListener('click', this.confirmPlacement.bind(this));
-                
-                // Listen for reset button click
-                document.querySelector('.reset-button').addEventListener('click', this.resetPlacement.bind(this));
-            },
-            
-            onCanvasClick: function(event) {
-                // Don't process if already placed or UI elements were clicked
-                if (this.isPlaced) return;
-                
-                // Create a ray from the camera position outward
-                const raycaster = new THREE.Raycaster();
-                const mouse = new THREE.Vector2();
-                
-                // Get canvas dimensions
-                const canvasBounds = this.canvasEl.getBoundingClientRect();
-                
-                // Calculate the normalized mouse position (-1 to 1 for both x and y)
-                mouse.x = ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1;
-                mouse.y = -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1;
-                
-                // Update the raycaster with the camera and mouse position
-                raycaster.setFromCamera(mouse, this.camera.object3D.children[0]);
-                
-                // Create a position approximately 3 meters in front of the camera along the ray
-                const pos = new THREE.Vector3();
-                raycaster.ray.at(3, pos);
-                
-                // Position the garden preview at this location
-                const preview = document.getElementById('garden-preview');
-                preview.object3D.position.copy(pos);
-                
-                // Make preview visible
-                preview.setAttribute('visible', true);
-                
-                // Add shadow support if needed
-                if (!preview.hasAttribute('shadow')) {
-                    preview.setAttribute('shadow', 'cast: true; receive: true');
-                }
-                
-                // Show the confirm button
-                document.querySelector('.confirm-placement').style.display = 'flex';
-            },
-            
-            confirmPlacement: function() {
-                if (this.isPlaced) return;
-                
-                // Get the preview position
-                const preview = document.getElementById('garden-preview');
-                const position = preview.object3D.position;
-                
-                // Create the actual garden at the preview position
-                const garden = document.getElementById('garden-container');
-                garden.setAttribute('position', `${position.x} ${position.y} ${position.z}`);
-                garden.setAttribute('visible', true);
-                
-                // Hide preview and UI elements
-                preview.setAttribute('visible', false);
-                document.querySelector('.placement-ui').style.display = 'none';
-                document.querySelector('.confirm-placement').style.display = 'none';
-                
-                // Show the reset button and response toggle
-                document.querySelector('.reset-button').style.display = 'flex';
-                document.querySelector('.response-toggle').style.display = 'flex';
-                
-                // Mark as placed
-                this.isPlaced = true;
-                
-                // Start the flower animations
-                const flowerComponent = garden.components['flower-garden'];
-                if (flowerComponent) {
-                    flowerComponent.placeFlowers();
-                }
-            },
-            
-            resetPlacement: function() {
-                if (!this.isPlaced) return;
-                
-                // Hide the garden
-                const garden = document.getElementById('garden-container');
-                garden.setAttribute('visible', false);
-                
-                // Reset the flower garden component
-                const flowerComponent = garden.components['flower-garden'];
-                if (flowerComponent) {
-                    flowerComponent.resetFlowers();
-                }
-                
-                // Show placement UI again
-                document.querySelector('.placement-ui').style.display = 'flex';
-                document.querySelector('.confirm-placement').style.display = 'none';
-                
-                // Hide the reset button and response components
-                document.querySelector('.reset-button').style.display = 'none';
-                document.querySelector('.response-toggle').style.display = 'none';
-                document.getElementById('response-form').style.display = 'none';
-                
-                // Reset flag
-                this.isPlaced = false;
-            }
-        });
-        
-        // Flower garden component
-        AFRAME.registerComponent('flower-garden', {
-            schema: {
-                flowerCount: {type: 'number', default: 15},
-                radius: {type: 'number', default: 3}
-            },
-            
-            init: function() {
-                // Initialize
-                this.flowersPlaced = false;
-                this.flowers = [];
-                this.responseInterval = null;
-            },
-            
-            placeFlowers: function() {
-                if (this.flowersPlaced) return;
-                
-                // Path to models - adjust to your server location
-                const basePath = './models/'; // Update this path to match your server structure
-                
-                // Local flower model files from repository
-                const flowerModels = [
-                    '6 Orchid.glb',
-                    '7 Poppy.glb',
-                    '8 Iris.glb',
-                    '13 Marigold.glb',
-                    '16 Lavender.glb',
-                    '17 Hibiscus.glb',
-                    '20 Violet.glb',
-                    '24 Cosmos.glb',
-                    '25 Snapdragon.glb',
-                    '26 Morning Glory.glb',
-                    '27 Anemone.glb',
-                    '30 Primrose.glb'
-                ];
-                
-                // Place flowers in a circular pattern on the ground
-                for (let i = 0; i < this.data.flowerCount; i++) {
-                    // Calculate position in a circle with some randomness
-                    const angle = (i / this.data.flowerCount) * Math.PI * 2;
-                    const randomRadius = this.data.radius * (0.3 + Math.random() * 0.7);
-                    const x = Math.cos(angle) * randomRadius;
-                    const z = Math.sin(angle) * randomRadius;
-                    
-                    // Randomize model selection
-                    const modelIndex = Math.floor(Math.random() * flowerModels.length);
-                    const modelUrl = basePath + flowerModels[modelIndex];
-                    
-                    // Create flower entity
-                    const flower = document.createElement('a-entity');
-                    flower.setAttribute('gltf-model', modelUrl);
-                    flower.setAttribute('class', 'flower-model');
-                    
-                    // Start position below ground
-                    flower.setAttribute('position', {x: x, y: -1.5, z: z});
-                    
-                    // Random scale, but keep it proportional
-                    const scale = 0.5 + Math.random() * 0.3;
-                    flower.setAttribute('scale', {
-                        x: scale,
-                        y: scale,
-                        z: scale
-                    });
-                    
-                    flower.setAttribute('rotation', {
-                        x: 0, 
-                        y: Math.random() * 360, 
-                        z: 0
-                    });
-                    
-                    // Add grow-up animation
-                    flower.setAttribute('animation__grow', {
-                        property: 'position',
-                        from: `${x} -1.5 ${z}`,
-                        to: `${x} -0.5 ${z}`,
-                        dur: 3000 + Math.random() * 2000,
-                        delay: 1000 + Math.random() * 5000,
-                        easing: 'easeOutElastic',
-                        loop: false
-                    });
-                    
-                    // Add subtle sway animation
-                    flower.setAttribute('animation__sway', {
-                        property: 'rotation',
-                        from: `0 ${Math.random() * 360} 0`,
-                        to: `0 ${Math.random() * 360 + 15} 0`,
-                        dur: 10000 + Math.random() * 5000,
-                        delay: 4000 + Math.random() * 2000,
-                        easing: 'easeInOutSine',
-                        loop: true,
-                        dir: 'alternate'
-                    });
-                    
-                    this.el.appendChild(flower);
-                    this.flowers.push(flower);
-                    
-                    // Log flower creation for debugging
-                    console.log(`Placed flower at (${x}, -0.5, ${z})`);
-                }
-                
-                console.log(`Placed ${this.data.flowerCount} flowers in the garden`);
-                this.flowersPlaced = true;
-                
-                // Start loading and cycling responses
-                this.loadResponses();
-            },
-            
-            resetFlowers: function() {
-                // Remove all flowers
-                this.flowers.forEach(flower => {
-                    if (flower.parentNode) {
-                        flower.parentNode.removeChild(flower);
-                    }
-                });
-                
-                // Clear arrays
-                this.flowers = [];
-                
-                // Clear response cycling
-                if (this.responseInterval) {
-                    clearInterval(this.responseInterval);
-                    this.responseInterval = null;
-                }
-                
-                // Reset flower placement flag
-                this.flowersPlaced = false;
-            },
-            
-            loadResponses: function() {
-                // Display some default responses while loading
-                this.responses = [
-                    { name: "Jane", message: "We need more green space in our neighborhood!" },
-                    { name: "Carlos", message: "It would bring our community together." },
-                    { name: "Aisha", message: "I'd love to grow vegetables with my neighbors." }
-                ];
-                
-                // URL of your deployed Google Apps Script web app with action parameter
-                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses';
-                
-                // Attempt to load real responses
-                fetch(scriptURL)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.result === 'success' && data.responses && data.responses.length > 0) {
-                            this.responses = data.responses;
-                            console.log(`Loaded ${this.responses.length} responses`);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error loading responses:', error);
-                    })
-                    .finally(() => {
-                        // Start cycling responses, even if using defaults
-                        if (this.responses.length > 0) {
-                            this.startResponseCycle();
-                        }
-                    });
-            },
-            
-            startResponseCycle: function() {
-                // Show first response
-                this.showNextResponse();
-                
-                // Set interval to cycle through responses
-                this.responseInterval = setInterval(() => this.showNextResponse(), 12000); // Every 12 seconds
-            },
-            
-            showNextResponse: function() {
-                if (!this.responses || this.responses.length === 0) return;
-                
-                // Get a random index that's different from the current one
-                let newIndex;
-                do {
-                    newIndex = Math.floor(Math.random() * this.responses.length);
-                } while (this.responses.length > 1 && newIndex === this.currentResponseIndex);
-                
-                this.currentResponseIndex = newIndex;
-                const response = this.responses[this.currentResponseIndex];
-                
-                // Update the response display text
-                const responseDisplay = document.getElementById('response-display');
-                if (responseDisplay) {
-                    responseDisplay.setAttribute('value', `"${response.message}"\n- ${response.name}`);
-                    
-                    // Add a brief fade animation
-                    responseDisplay.setAttribute('animation__fade', {
-                        property: 'opacity',
-                        from: 0,
-                        to: 1,
-                        dur: 2000,
-                        easing: 'easeOutQuad'
-                    });
-                }
-            }
-        });
-    </script>
 </head>
-<body style="margin: 0; overflow: hidden;">
+<body>
+    <!-- Loading screen -->
     <div class="arjs-loader">
         <div>
             <h1>Community Garden AR</h1>
             <p>Loading... Please allow camera access when prompted.</p>
-            <p>You'll be able to place the garden anywhere in your space!</p>
+            <p>Tap anywhere to place the garden in your space!</p>
         </div>
     </div>
     
-    <!-- Placement UI -->
-    <div class="placement-ui">
-        <div class="placement-instructions">
-            Tap on the screen to place the garden, then confirm with the checkmark button
-        </div>
-        <div class="placement-crosshair"></div>
-    </div>
+    <!-- Instructions -->
+    <div id="instructions">Tap anywhere on your screen to place the garden</div>
     
-    <!-- Control buttons -->
-    <div class="ar-controls">
-        <button class="ar-button confirm-placement" style="display: none;">✓</button>
-        <button class="ar-button reset-button" style="display: none;">↺</button>
-    </div>
+    <!-- Buttons for garden controls -->
+    <button id="place-button">📍</button>
+    <button id="reset-button">↺</button>
+    <button id="response-toggle">+</button>
     
-    <!-- Response toggle button -->
-    <button class="response-toggle">+</button>
+    <!-- Touch overlay for tap detection -->
+    <div id="touch-overlay"></div>
     
     <!-- Response form -->
-    <div id="response-form" class="response-form">
+    <div id="response-form">
         <h3>Share Your Thoughts</h3>
         <form id="garden-response-form">
             <label for="name">Your Name:</label>
@@ -553,118 +215,216 @@
             
             <button type="submit">Submit</button>
         </form>
-        <div id="response-status" class="response-status"></div>
+        <div id="response-status"></div>
     </div>
     
     <!-- A-Frame scene -->
-    <a-scene 
-        embedded
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        renderer="logarithmicDepthBuffer: true; precision: medium;"
-        tap-to-place>
+    <a-scene embedded vr-mode-ui="enabled: false">
+        <!-- Camera settings -->
+        <a-entity camera position="0 1.6 0" look-controls="enabled: false"></a-entity>
         
-        <!-- Assets preloading -->
-        <a-assets>
-            <!-- In a real implementation, preload your models here -->
-        </a-assets>
-        
-        <!-- Garden preview (shown before placement) -->
+        <!-- Garden preview entity - shown when user taps -->
         <a-entity id="garden-preview" visible="false">
             <a-circle 
-                material="color: #7c5c3c; opacity: 0.5; side: double"
-                rotation="-90 0 0"
-                radius="5"
+                material="color: #7c5c3c; opacity: 0.5; side: double" 
+                rotation="-90 0 0" 
+                radius="2" 
                 position="0 0 0">
             </a-circle>
         </a-entity>
         
-        <!-- Garden container (hidden until placed) -->
-        <a-entity 
-            id="garden-container" 
-            flower-garden="flowerCount: 20; radius: 4"
-            visible="false">
-            
-            <!-- Ground plane -->
-            <a-circle 
-                id="ground-reference"
+        <!-- Actual garden entity - hidden until placement is confirmed -->
+        <a-entity id="garden-container" visible="false">
+            <!-- Ground -->
+            <a-circle
                 material="color: #7c5c3c; opacity: 0.3; side: double"
                 rotation="-90 0 0"
-                radius="5"
+                radius="2"
                 position="0 0 0">
             </a-circle>
             
-            <!-- Text floating above the garden -->
-            <a-text 
+            <!-- Text above garden -->
+            <a-text
                 id="garden-text"
                 value="Why can't this be a community garden?"
-                color="white" 
+                color="white"
                 align="center"
-                width="4"
-                position="0 1.5 0"
-                scale="1 1 1"
-                animation="property: position; to: 0 1.7 0; dur: 3000; easing: easeInOutSine; loop: true; dir: alternate;">
+                width="2"
+                position="0 1 0"
+                look-at="[camera]"
+                animation="property: position; to: 0 1.1 0; dur: 3000; easing: easeInOutSine; loop: true; dir: alternate;">
             </a-text>
             
-            <!-- Response display text -->
+            <!-- Response display -->
             <a-text
                 id="response-display"
                 value=""
                 color="#B3FFAE"
                 align="center"
-                width="3.5"
-                position="0 0.9 0"
-                scale="0.8 0.8 0.8"
-                animation="property: position; to: 0 1.0 0; dur: 4000; easing: easeInOutSine; loop: true; dir: alternate; delay: 1500;">
+                width="1.5"
+                position="0 0.6 0"
+                look-at="[camera]"
+                animation="property: position; to: 0 0.7 0; dur: 4000; easing: easeInOutSine; loop: true; dir: alternate; delay: 1500;">
             </a-text>
+            
+            <!-- Flower container -->
+            <a-entity id="flower-container"></a-entity>
         </a-entity>
         
-        <!-- Camera & cursor -->
-        <a-entity camera position="0 1.6 0" look-controls>
-            <a-entity cursor="fuse: false"
-                      position="0 0 -1"
-                      geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-                      material="color: white; shader: flat"
-                      visible="false">
-            </a-entity>
-        </a-entity>
-        
-        <!-- Ambient light -->
-        <a-light type="ambient" color="#BBB" intensity="0.5"></a-light>
-        
-        <!-- Directional light casting shadows -->
-        <a-light type="directional" 
-                 color="#FFF" 
-                 intensity="0.8" 
-                 position="-1 1 1"
-                 cast-shadow="true">
-        </a-light>
+        <!-- Light -->
+        <a-light type="ambient" color="#BBB" intensity="1"></a-light>
+        <a-light type="directional" color="#FFF" intensity="0.6" position="-0.5 1 1"></a-light>
     </a-scene>
     
     <script>
-        // Wait for DOM to load
+        // Wait for scene to load
         document.addEventListener('DOMContentLoaded', function() {
-            // Loader handling
+            // Get references to DOM elements
             const arjsLoader = document.querySelector('.arjs-loader');
+            const instructions = document.getElementById('instructions');
+            const placeButton = document.getElementById('place-button');
+            const resetButton = document.getElementById('reset-button');
+            const responseToggle = document.getElementById('response-toggle');
+            const responseForm = document.getElementById('response-form');
+            const touchOverlay = document.getElementById('touch-overlay');
+            const gardenPreview = document.getElementById('garden-preview');
+            const gardenContainer = document.getElementById('garden-container');
+            const cameraEl = document.querySelector('[camera]');
+            
+            // App state
+            let isPlaced = false;
+            let tapPosition = { x: 0, y: 0, z: -3 }; // Default position in front of camera
             
             // Hide loader after a short delay
             setTimeout(() => {
-                if (arjsLoader) {
-                    arjsLoader.style.display = 'none';
+                arjsLoader.style.display = 'none';
+                
+                // Start camera feed
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function(stream) {
+                        // Create video element for camera background
+                        const video = document.createElement('video');
+                        video.srcObject = stream;
+                        video.style.position = 'fixed';
+                        video.style.top = '0';
+                        video.style.left = '0';
+                        video.style.width = '100%';
+                        video.style.height = '100%';
+                        video.style.objectFit = 'cover';
+                        video.style.zIndex = '-1';
+                        video.play();
+                        document.body.insertBefore(video, document.body.firstChild);
+                    })
+                    .catch(function(err) {
+                        console.error('Error accessing camera:', err);
+                        alert('Camera access is required for this AR experience.');
+                    });
+            }, 2000);
+            
+            // Handle touch/click for garden placement
+            touchOverlay.addEventListener('click', function(event) {
+                if (isPlaced) return;
+                
+                // Calculate tap position in 3D space
+                // For simplicity, we'll place it at a fixed distance in front of the camera
+                // in the direction the user tapped
+                
+                // Get viewport dimensions
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                
+                // Calculate normalized device coordinates (-1 to 1)
+                const ndcX = (event.clientX / width) * 2 - 1;
+                const ndcY = -(event.clientY / height) * 2 + 1;
+                
+                // Fixed distance from camera
+                const distance = 3;
+                
+                // Simple projection
+                tapPosition = {
+                    x: ndcX * distance,
+                    y: 0, // Keep at ground level
+                    z: -distance // Always in front of camera
+                };
+                
+                // Update preview position
+                gardenPreview.setAttribute('position', `${tapPosition.x} ${tapPosition.y} ${tapPosition.z}`);
+                gardenPreview.setAttribute('visible', true);
+                
+                // Update instructions
+                instructions.textContent = 'Tap the place button to confirm location';
+                
+                // Show place button more prominently
+                placeButton.style.backgroundColor = '#4CAF50';
+                placeButton.style.transform = 'scale(1.1)';
+                placeButton.style.transition = 'transform 0.3s ease, background-color 0.3s ease';
+            });
+            
+            // Handle place button click
+            placeButton.addEventListener('click', function() {
+                if (isPlaced) return;
+                
+                // Position garden at tap location
+                gardenContainer.setAttribute('position', `${tapPosition.x} ${tapPosition.y} ${tapPosition.z}`);
+                gardenContainer.setAttribute('visible', true);
+                
+                // Hide preview
+                gardenPreview.setAttribute('visible', false);
+                
+                // Update UI
+                placeButton.style.display = 'none';
+                resetButton.style.display = 'flex';
+                responseToggle.style.display = 'flex';
+                instructions.style.display = 'none';
+                touchOverlay.style.display = 'none'; // Disable touch overlay
+                
+                // Mark as placed
+                isPlaced = true;
+                
+                // Place flowers
+                placeFlowers();
+            });
+            
+            // Handle reset button click
+            resetButton.addEventListener('click', function() {
+                if (!isPlaced) return;
+                
+                // Hide garden
+                gardenContainer.setAttribute('visible', false);
+                
+                // Reset UI
+                resetButton.style.display = 'none';
+                placeButton.style.display = 'flex';
+                responseToggle.style.display = 'none';
+                responseForm.style.display = 'none';
+                instructions.style.display = 'block';
+                instructions.textContent = 'Tap anywhere on your screen to place the garden';
+                touchOverlay.style.display = 'block'; // Re-enable touch overlay
+                
+                // Reset state
+                isPlaced = false;
+                
+                // Clear flowers
+                const flowerContainer = document.getElementById('flower-container');
+                while (flowerContainer.firstChild) {
+                    flowerContainer.removeChild(flowerContainer.firstChild);
                 }
-            }, 3000);
+                
+                // Clear response interval if any
+                if (window.responseInterval) {
+                    clearInterval(window.responseInterval);
+                    window.responseInterval = null;
+                }
+            });
             
-            // Response form toggle
-            const responseToggle = document.querySelector('.response-toggle');
-            const responseForm = document.getElementById('response-form');
-            
+            // Handle response toggle
             responseToggle.addEventListener('click', function() {
                 const isVisible = responseForm.style.display === 'block';
                 responseForm.style.display = isVisible ? 'none' : 'block';
                 responseToggle.textContent = isVisible ? '+' : 'x';
             });
             
-            // Form submission handling
+            // Handle form submission
             const gardenForm = document.getElementById('garden-response-form');
             const statusDiv = document.getElementById('response-status');
             
@@ -688,8 +448,7 @@
                 statusDiv.style.color = 'white';
                 
                 // URL of your deployed Google Apps Script web app
-                // Replace with your actual deployed script URL
-                const scriptURL = 'https://script.google.com/macros/s/AKfycbxBT2wnnk8feI8gZiMBKtrAPIX0DY5E6Qry4ayF8KVEa4v5hQHJPFeUSPdObuospRF0/exec';
+                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
                 
                 // Prepare URL with parameters
                 const url = new URL(scriptURL);
@@ -708,20 +467,16 @@
                     statusDiv.style.color = '#4CAF50';
                     gardenForm.reset();
                     
+                    // Add to responses
+                    if (window.responses) {
+                        window.responses.push({ name, message });
+                    }
+                    
                     // Hide form after successful submission
                     setTimeout(() => {
                         responseForm.style.display = 'none';
                         responseToggle.textContent = '+';
                     }, 3000);
-                    
-                    // Add to local responses if available
-                    const gardenEl = document.getElementById('garden-container');
-                    if (gardenEl && gardenEl.components['flower-garden']) {
-                        const flowerComponent = gardenEl.components['flower-garden'];
-                        if (flowerComponent.responses) {
-                            flowerComponent.responses.push({name, message});
-                        }
-                    }
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -729,6 +484,150 @@
                     statusDiv.style.color = '#ff6b6b';
                 });
             });
+            
+            // Function to place flowers
+            function placeFlowers() {
+                const flowerContainer = document.getElementById('flower-container');
+                const flowerCount = 15;
+                const radius = 1.5;
+                
+                // Flower types (simple geometry for now)
+                const flowerTypes = [
+                    { color: '#FF5733', height: 0.3 },  // Orange
+                    { color: '#DAF7A6', height: 0.25 }, // Light green
+                    { color: '#FFC300', height: 0.2 },  // Yellow
+                    { color: '#C70039', height: 0.35 }, // Red
+                    { color: '#9B59B6', height: 0.3 },  // Purple
+                    { color: '#3498DB', height: 0.25 }  // Blue
+                ];
+                
+                // Place flowers in a circle
+                for (let i = 0; i < flowerCount; i++) {
+                    // Calculate position in a circle
+                    const angle = (i / flowerCount) * Math.PI * 2;
+                    const randomRadius = radius * (0.3 + Math.random() * 0.7);
+                    const x = Math.cos(angle) * randomRadius;
+                    const z = Math.sin(angle) * randomRadius;
+                    
+                    // Select flower type
+                    const flowerType = flowerTypes[Math.floor(Math.random() * flowerTypes.length)];
+                    
+                    // Create flower stem
+                    const stem = document.createElement('a-cylinder');
+                    stem.setAttribute('position', `${x} ${-0.2} ${z}`);
+                    stem.setAttribute('radius', '0.02');
+                    stem.setAttribute('height', '0.4');
+                    stem.setAttribute('color', '#2ECC71');
+                    stem.setAttribute('animation__grow', {
+                        property: 'scale',
+                        from: '1 0 1',
+                        to: '1 1 1',
+                        dur: 2000 + Math.random() * 1000,
+                        delay: 500 + Math.random() * 2000,
+                        easing: 'easeOutElastic'
+                    });
+                    flowerContainer.appendChild(stem);
+                    
+                    // Create flower head
+                    const flowerHead = document.createElement('a-entity');
+                    flowerHead.setAttribute('position', `${x} ${flowerType.height - 0.2} ${z}`);
+                    
+                    // Randomize flower appearance
+                    const flowerGeom = Math.random() > 0.5 ? 'a-sphere' : 'a-cone';
+                    const flower = document.createElement(flowerGeom);
+                    flower.setAttribute('radius', '0.08 + Math.random() * 0.05');
+                    flower.setAttribute('color', flowerType.color);
+                    flower.setAttribute('segments-height', '1');
+                    flower.setAttribute('segments-radial', '8');
+                    flower.setAttribute('scale', '0 0 0');
+                    flower.setAttribute('animation__bloom', {
+                        property: 'scale',
+                        from: '0 0 0',
+                        to: '1 1 1',
+                        dur: 1500,
+                        delay: 2500 + Math.random() * 2000,
+                        easing: 'easeOutElastic'
+                    });
+                    
+                    // Add flower sway animation
+                    flowerHead.setAttribute('animation__sway', {
+                        property: 'rotation',
+                        from: `0 0 ${-5 - Math.random() * 5}`,
+                        to: `0 0 ${5 + Math.random() * 5}`,
+                        dur: 2000 + Math.random() * 3000,
+                        delay: 3000 + Math.random() * 1000,
+                        easing: 'easeInOutSine',
+                        loop: 'true',
+                        dir: 'alternate'
+                    });
+                    
+                    flowerHead.appendChild(flower);
+                    flowerContainer.appendChild(flowerHead);
+                }
+                
+                // Load and cycle responses
+                loadResponses();
+            }
+            
+            // Load responses
+            function loadResponses() {
+                // Default responses
+                window.responses = [
+                    { name: "Jane", message: "We need more green space in our neighborhood!" },
+                    { name: "Carlos", message: "It would bring our community together." },
+                    { name: "Aisha", message: "I'd love to grow vegetables with my neighbors." }
+                ];
+                
+                // URL of Google Apps Script
+                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses';
+                
+                // Try to load real responses
+                fetch(scriptURL)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.result === 'success' && data.responses && data.responses.length > 0) {
+                            window.responses = data.responses;
+                            console.log(`Loaded ${window.responses.length} responses`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading responses:', error);
+                    })
+                    .finally(() => {
+                        // Start cycling responses
+                        showNextResponse();
+                        window.responseInterval = setInterval(showNextResponse, 12000);
+                    });
+            }
+            
+            // Show next response
+            window.currentResponseIndex = -1;
+            function showNextResponse() {
+                if (!window.responses || window.responses.length === 0) return;
+                
+                // Get next response
+                let newIndex;
+                do {
+                    newIndex = Math.floor(Math.random() * window.responses.length);
+                } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
+                
+                window.currentResponseIndex = newIndex;
+                const response = window.responses[window.currentResponseIndex];
+                
+                // Update display
+                const responseDisplay = document.getElementById('response-display');
+                responseDisplay.setAttribute('value', `"${response.message}"\n- ${response.name}`);
+                
+                // Animate opacity
+                responseDisplay.setAttribute('opacity', '0');
+                responseDisplay.setAttribute('animation__fade', {
+                    property: 'opacity',
+                    from: '0',
+                    to: '1',
+                    dur: '1000',
+                    easing: 'easeOutQuad'
+                });
+            }
         });
     </script>
 </body>
