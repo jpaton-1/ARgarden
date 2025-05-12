@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden?</title>
+    <title>Why can't this be a community garden? - DEBUG</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -20,271 +20,117 @@
             padding: 0;
             font-family: 'Roboto', Arial, sans-serif;
             overflow: hidden;
-            background-color: #000; /* Fallback background */
+            background-color: #000;
         }
 
         #loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 3000; /* Highest z-index for loading */
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; color: white; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 3000;
+            text-align: center; padding: 20px; box-sizing: border-box;
         }
+        #loading h1 { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 2.5em; margin-bottom: 15px; }
+        #loading p { font-size: 1.1em; }
+        #loading-progress { width: 80%; max-width: 300px; height: 20px; background-color: #333; border-radius: 10px; margin-top: 20px; overflow: hidden; }
+        #loading-bar { height: 100%; width: 0%; background-color: #4CAF50; transition: width 0.3s ease; }
+        #loading-text { margin-top: 10px; font-size: 14px; }
 
-        #loading h1 {
-            font-family: 'Roboto', sans-serif; /* Keep loading title standard for clarity */
-            font-weight: 700;
-            font-size: 2.5em;
-            margin-bottom: 15px;
-        }
-         #loading p {
-            font-size: 1.1em;
-        }
+        #camera-feed { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        #css2d-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 
-
-        #loading-progress {
-            width: 80%;
-            max-width: 300px;
-            height: 20px;
-            background-color: #333;
-            border-radius: 10px;
-            margin-top: 20px;
-            overflow: hidden;
-        }
-
-        #loading-bar {
-            height: 100%;
-            width: 0%;
-            background-color: #4CAF50;
-            transition: width 0.3s ease;
-        }
-
-        #loading-text {
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
-        #camera-feed {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-        }
-
-        #canvas-container { /* For WebGL Canvas */
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2; /* WebGL canvas */
-            pointer-events: none;
-        }
-
-        #css2d-container { /* For CSS2DRenderer's output */
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3; /* CSS2D objects on top of WebGL */
-            pointer-events: none; /* Container itself doesn't block, individual CSS2DObjects might */
-        }
-
+        /* --- DEBUG STYLES FOR 3D TEXT --- */
         #message-container {
-            /* CSS positioning removed, handled by CSS2DRenderer */
-            color: white;
-            background: none;
-            padding: 5px;
+            color: red;
+            background-color: yellow;
+            padding: 10px;
             text-align: center;
-            font-family: 'Gwendolyn', cursive;
-            font-weight: 700;
-            font-size: 2vw; /* Responsive font size, adjust as needed */
-            line-height: 1.2;
-            /* max-width: 90%; */ /* Might not be needed, or adjust for 3D context */
-            pointer-events: auto; /* Allow interaction if any links/buttons were inside */
-            display: none; /* Initially hidden */
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0,0,0,0.6);
-            white-space: nowrap; /* Prevent unwanted wrapping for very large text */
+            font-family: Arial, sans-serif; /* Override Gwendolyn for debug */
+            font-weight: bold;
+            font-size: 24px; /* Fixed size for debug */
+            pointer-events: auto;
+            display: none; /* Initially hidden by CSS */
+            border: 3px solid blue;
+            /* Styles like text-shadow, white-space, vw font-size commented out for debug */
         }
 
         #response-display {
-            /* CSS positioning removed, handled by CSS2DRenderer */
-            color: #C8FFC5;
-            background-color: rgba(0, 0, 0, 0.65);
-            padding: 10px 15px;
-            border-radius: 10px;
+            color: blue;
+            background-color: lime;
+            padding: 8px;
+            border-radius: 5px;
             text-align: center;
-            font-family: 'Roboto', sans-serif;
-            font-size: 17px; /* Adjust as needed for 3D */
-            font-weight: 400;
-            max-width: 300px; /* Constrain width for readability in 3D */
+            font-family: Arial, sans-serif; /* Override Roboto for debug */
+            font-size: 16px; /* Fixed size for debug */
+            font-weight: normal;
+            /* max-width: 300px; */ /* Allow any width for debug */
             pointer-events: auto;
-            display: none; /* Initially hidden */
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+            display: none; /* Initially hidden by CSS */
+            border: 3px solid red;
         }
+        /* --- END DEBUG STYLES --- */
+
 
         .controls {
-            position: fixed;
-            bottom: 20px;
-            width: 100%;
-            display: flex;
-            justify-content: space-around; /* Better spacing for 3 buttons */
-            padding: 0 20px;
-            box-sizing: border-box;
-            z-index: 100; /* Above other 3D/camera elements */
+            position: fixed; bottom: 20px; width: 100%; display: flex;
+            justify-content: space-around; padding: 0 20px; box-sizing: border-box; z-index: 100;
         }
-
         .btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            color: white;
-            border: none;
-            font-family: 'Roboto', sans-serif;
-            font-size: 28px; /* Increased for better tap */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
+            width: 60px; height: 60px; border-radius: 50%; color: white; border: none;
+            font-family: 'Roboto', sans-serif; font-size: 28px; display: flex;
+            align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease;
         }
-        .btn:active {
-            transform: scale(0.95);
-        }
-
+        .btn:active { transform: scale(0.95); }
         #place-btn { background-color: #4CAF50; }
         #reset-btn { background-color: #f44336; display: none; }
         #response-toggle { background-color: #2196F3; display: none; }
 
-
         #response-form {
-            position: fixed;
-            bottom: 90px; /* Above controls */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 400px;
-            background: rgba(20, 20, 20, 0.85);
-            backdrop-filter: blur(5px);
-            border-radius: 15px;
-            padding: 20px;
-            color: white;
-            z-index: 200; /* Above controls */
-            display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(5px); border-radius: 15px; padding: 20px; color: white;
+            z-index: 200; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-
-        #response-form input,
-        #response-form textarea {
-            width: calc(100% - 16px);
-            padding: 10px;
-            margin: 8px 0 12px;
-            border: 1px solid #555;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            font-family: 'Roboto', Arial, sans-serif;
-            font-size: 16px;
+        #response-form input, #response-form textarea {
+            width: calc(100% - 20px); /* Adjusted for padding */ padding: 10px; margin: 8px 0 12px;
+            border: 1px solid #555; border-radius: 5px; background: rgba(255, 255, 255, 0.1);
+            color: white; font-family: 'Roboto', Arial, sans-serif; font-size: 16px;
         }
-        #response-form input::placeholder,
-        #response-form textarea::placeholder {
-            color: #bbb;
-        }
-
+        #response-form input::placeholder, #response-form textarea::placeholder { color: #bbb; }
         #response-form textarea { height: 80px; resize: none; }
-
         #response-form button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px 18px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-family: 'Roboto', sans-serif;
-            width: 100%;
-            font-size: 16px;
-            transition: background-color 0.2s ease;
+            background: #4CAF50; color: white; border: none; padding: 12px 18px;
+            border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Roboto', sans-serif;
+            width: 100%; font-size: 16px; transition: background-color 0.2s ease;
         }
         #response-form button:hover { background: #45a049; }
         #response-form h3 { margin-top: 0; text-align: center; font-weight: 700; }
         #response-status { margin-top: 12px; text-align: center; font-weight: bold; min-height: 20px; }
 
         #instructions {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(3px);
-            color: white;
-            padding: 12px 18px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 16px;
-            z-index: 100;
-            max-width: 80%;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(3px); color: white;
+            padding: 12px 18px; border-radius: 10px; text-align: center; font-size: 16px;
+            z-index: 100; max-width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
-
         #permission-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            z-index: 4000; /* Highest */
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            color: white;
-            padding: 20px;
-            box-sizing: border-box;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); z-index: 4000; display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; color: white; padding: 20px; box-sizing: border-box;
         }
         #permission-overlay h2 { font-family: 'Roboto', sans-serif; font-weight: 700; }
         #permission-btn {
-            margin-top: 20px;
-            padding: 12px 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            font-size: 18px;
-            font-family: 'Roboto', sans-serif;
-            font-weight: 700;
-            cursor: pointer;
+            margin-top: 20px; padding: 12px 24px; background-color: #4CAF50; color: white;
+            border: none; border-radius: 30px; font-size: 18px; font-family: 'Roboto', sans-serif;
+            font-weight: 700; cursor: pointer;
         }
-
         #debug-info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            font-family: monospace;
-            z-index: 2500;
-            display: none;
+            position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; /* Green text */
+            padding: 8px 12px; border-radius: 5px; font-size: 11px; font-family: monospace;
+            z-index: 2500; display: none; width: calc(100% - 40px); max-height: 150px; overflow-y: auto;
+            box-sizing: border-box; border: 1px solid #333;
         }
     </style>
 </head>
@@ -304,17 +150,13 @@
 
     <video id="camera-feed" autoplay playsinline muted></video>
     <div id="canvas-container"></div>
-    <div id="message-container">
-        <p id="message-text">Why can't this be a community garden?</p>
+    <div id="message-container"> <p id="message-text">Why can't this be a community garden?</p>
     </div>
-    <div id="response-display"></div>
-
-    <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
+    <div id="response-display"></div> <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
 
     <div class="controls">
         <button id="response-toggle" class="btn" title="Share thoughts">+</button>
-        <button id="place-btn" classs="btn" title="Place Garden">🌸</button>
-        <button id="reset-btn" class="btn" title="Reset Garden">↺</button>
+        <button id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn" title="Reset Garden">↺</button>
     </div>
 
     <div id="response-form">
@@ -322,8 +164,7 @@
         <form id="garden-response-form">
             <label for="name">Your Name:</label>
             <input type="text" id="name" name="name" placeholder="e.g., Alex P." required>
-            <label for="message">Why can't this be a community garden?</label>
-            <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea>
+            <label for="form-message">Why can't this be a community garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea>
             <button type="submit">Submit Idea</button>
         </form>
         <div id="response-status"></div>
@@ -332,6 +173,7 @@
     <div id="debug-info"></div>
 
     <script>
+        // !!! IMPORTANT: Open your browser's Developer Console to see logs and errors !!!
         document.addEventListener('DOMContentLoaded', function() {
             const loadingScreen = document.getElementById('loading');
             const loadingBar = document.getElementById('loading-bar');
@@ -347,30 +189,29 @@
             const responseForm = document.getElementById('response-form');
             const debugInfo = document.getElementById('debug-info');
 
-            // HTML elements for 3D text (content updated by other logic)
             const messageElement = document.getElementById('message-container');
             const responseElement = document.getElementById('response-display');
 
-
             let scene, camera, renderer, controls;
-            let css2dRenderer; // For 3D HTML text
-            let messageObject, responseObject; // CSS2DObjects
+            let css2dRenderer;
+            let messageObject, responseObject;
 
             let flowerModels = [];
-            let flowers = []; // Stores active flower groups
+            let flowers = [];
             let modelsLoaded = false;
             let modelsLoading = false;
             let isPlaced = false;
 
             const urlParams = new URLSearchParams(window.location.search);
-            const debugMode = urlParams.has('debug');
+            const debugMode = urlParams.has('debug') || true; // Enable debug mode by default for this version
             if (debugMode) debugInfo.style.display = 'block';
 
             function debugLog(message) {
                 if (debugMode) {
-                    console.log(message);
+                    console.log(message); // Log to actual console
                     const d = new Date();
-                    debugInfo.innerHTML = `[${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}] ${message}<br>` + debugInfo.innerHTML.substring(0, 200);
+                    const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`;
+                    debugInfo.innerHTML = `[${time}] ${message}<br>` + debugInfo.innerHTML.substring(0, 1000); // Limit length
                 }
             }
 
@@ -379,133 +220,128 @@
             initAR();
 
             function initAR() {
-                debugLog('Initializing AR...');
+                debugLog('Fn: initAR START');
                 startCamera();
                 if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    debugLog('iOS device: showing motion permission overlay');
+                    debugLog('iOS: showing motion permission overlay');
                     permissionOverlay.style.display = 'flex';
                     permissionBtn.addEventListener('click', requestMotionPermission, { once: true });
                 } else {
-                    debugLog('Non-iOS or older iOS: proceeding to init Three.js');
+                    debugLog('Non-iOS or older: proceeding to initThree');
                     initThree();
                 }
+                debugLog('Fn: initAR END');
             }
 
             function requestMotionPermission() {
-                debugLog('Requesting motion permission...');
+                debugLog('Fn: requestMotionPermission START');
                 DeviceOrientationEvent.requestPermission()
                     .then(response => {
                         if (response === 'granted') {
-                            debugLog('Motion permission granted.');
+                            debugLog('Motion permission: GRANTED.');
                             permissionOverlay.style.display = 'none';
                             initThree();
                         } else {
-                            debugLog('Motion permission denied.');
+                            debugLog('Motion permission: DENIED.');
                             alert('Motion sensor access is required for this AR experience.');
                         }
                     })
                     .catch(error => {
-                        debugLog('Error requesting motion permission: ' + error);
+                        debugLog('Motion permission ERROR: ' + error);
                         alert('Error accessing motion sensors. Please try again or use a different device.');
                     });
+                debugLog('Fn: requestMotionPermission END');
             }
 
             function startCamera() {
-                debugLog('Starting camera...');
+                debugLog('Fn: startCamera START');
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     alert('Camera access not supported by your browser.');
                     loadingScreen.innerHTML = '<h1>Camera Not Supported</h1><p>Please try a different browser.</p>';
                     return;
                 }
                 navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment',
-                        width: { ideal: window.innerWidth },
-                        height: { ideal: window.innerHeight }
-                    }
+                    video: { facingMode: 'environment', width: { ideal: window.innerWidth }, height: { ideal: window.innerHeight }}
                 })
                 .then(stream => {
                     cameraFeed.srcObject = stream;
-                    cameraFeed.onloadedmetadata = () => {
-                        debugLog('Camera feed loaded.');
-                        cameraFeed.play();
-                    };
+                    cameraFeed.onloadedmetadata = () => { debugLog('Camera feed metadata loaded.'); cameraFeed.play(); };
                 })
                 .catch(err => {
-                    console.error('Error accessing camera:', err);
-                    debugLog('Camera error: ' + err.message);
+                    console.error('Camera access ERROR:', err); debugLog('Camera ERROR: ' + err.message);
                     loadingScreen.innerHTML = '<h1>Camera Access Error</h1><p>Please allow camera access and refresh.</p>';
                 });
+                debugLog('Fn: startCamera END');
             }
 
             function initThree() {
-                debugLog('Initializing Three.js...');
+                debugLog('Fn: initThree START');
                 scene = new THREE.Scene();
                 camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                camera.position.set(0, 1.6, 0); // Approx eye height
+                camera.position.set(0, 1.6, 0);
 
-                // WebGL Renderer
                 renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setClearColor(0x000000, 0);
-                canvasContainer.appendChild(renderer.domElement); // Append to its dedicated container
+                canvasContainer.appendChild(renderer.domElement);
 
-                // CSS2D Renderer for HTML text in 3D
                 css2dRenderer = new THREE.CSS2DRenderer();
                 css2dRenderer.setSize(window.innerWidth, window.innerHeight);
-                css2dRenderer.domElement.id = 'css2d-container'; // For styling
-                document.body.appendChild(css2dRenderer.domElement); // Append to body, styled to overlay
+                css2dRenderer.domElement.id = 'css2d-container';
+                document.body.appendChild(css2dRenderer.domElement);
+                debugLog('WebGL and CSS2D Renderers initialized.');
 
                 controls = new THREE.DeviceOrientationControls(camera);
 
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-                scene.add(ambientLight);
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-                directionalLight.position.set(1, 2, 1);
-                scene.add(directionalLight);
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); scene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); directionalLight.position.set(1, 2, 1); scene.add(directionalLight);
 
                 const groundGeometry = new THREE.CircleGeometry(20, 32);
                 const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x7c5c3c, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
                 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-                ground.rotation.x = -Math.PI / 2;
-                ground.position.y = -0.5; // Ground plane reference
-                ground.visible = false;
-                scene.add(ground);
-                window.ground = ground; // Make accessible for visibility toggle
+                ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.visible = false;
+                scene.add(ground); window.ground = ground;
 
-                createCSS2DObjects(); // Setup 3D text objects
-                loadFlowerModels(); // Start loading models
+                createCSS2DObjects(); // IMPORTANT: Call this to setup text objects
+                loadFlowerModels();
 
                 window.addEventListener('resize', onWindowResize);
                 animate();
-                debugLog('Three.js initialized.');
+                debugLog('Fn: initThree END. Scene setup complete.');
             }
 
             function createCSS2DObjects() {
-                debugLog('Creating CSS2DObjects...');
-                // Ensure HTML elements are temporarily display:block for measurement by CSS2DRenderer
-                // The CSS for these elements should have them display:none initially
-                messageElement.style.display = 'block';
-                responseElement.style.display = 'block';
+                debugLog('Fn: createCSS2DObjects START');
+                if (!messageElement || !responseElement) {
+                    debugLog('CRITICAL ERROR: HTML element for text (message or response) not found!');
+                    return;
+                }
+                // Elements are display:none by CSS. CSS2DObject can be created.
+                // Visibility will be controlled by adding/removing from scene AND setting element.style.display.
 
                 messageObject = new THREE.CSS2DObject(messageElement);
-                messageObject.position.set(0, 1.2, -4); // Position: 0m side, 1.2m high, 4m in front
+                // DEBUG: Try an extremely close position first
+                // messageObject.position.set(0, camera.position.y - 0.1, -0.5);
+                messageObject.position.set(0, 1.2, -4); // Original: 0m side, 1.2m high, 4m in front
+                messageObject.visible = false; // Start as not visible in Three.js scene
+                scene.add(messageObject); // Add to scene graph, but visibility controlled
+                debugLog(`messageObject created. Initial el.display: ${messageElement.style.display}, obj.visible: ${messageObject.visible}`);
 
                 responseObject = new THREE.CSS2DObject(responseElement);
                 responseObject.position.set(0, 0.4, -3.8); // Slightly lower and closer than main question
-
-                // Hide them again by CSS default until added to scene
-                messageElement.style.display = 'none';
-                responseElement.style.display = 'none';
-                debugLog('CSS2DObjects created and positioned.');
+                responseObject.visible = false; // Start as not visible
+                scene.add(responseObject);
+                debugLog(`responseObject created. Initial el.display: ${responseElement.style.display}, obj.visible: ${responseObject.visible}`);
+                debugLog('Fn: createCSS2DObjects END');
             }
+
 
             function animate() {
                 requestAnimationFrame(animate);
                 if (controls) controls.update();
                 if (isPlaced) updateFlowerAnimations();
                 renderer.render(scene, camera);
-                if (css2dRenderer) css2dRenderer.render(scene, camera); // Render CSS2D overlay
+                if (css2dRenderer) css2dRenderer.render(scene, camera);
             }
 
             function onWindowResize() {
@@ -513,18 +349,19 @@
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 if (css2dRenderer) css2dRenderer.setSize(window.innerWidth, window.innerHeight);
+                debugLog('Fn: onWindowResize executed.');
             }
 
             function loadFlowerModels() {
+                // ... (Flower loading logic - kept same as previous full code)
                 if (modelsLoading || modelsLoaded) return;
                 modelsLoading = true;
-                debugLog('Loading GLB flower models...');
+                debugLog('Fn: loadFlowerModels START');
                 const flowerFiles = ['6 Orchid.glb', '7 Poppy.glb', '8 Iris.glb', '13 Marigold.glb', '16 Lavender.glb', '17 Hibiscus.glb', '20 Violet.glb', '24 Cosmos.glb', '25 Snapdragon.glb', '26 Morning Glory.glb', '27 Anemone.glb', '30 Primrose.glb'];
                 const flowerPaths = flowerFiles.map(filename => ({ path: `./models/${filename}`, scale: 0.45, name: filename.replace('.glb', '') }));
                 const loader = new THREE.GLTFLoader();
-                let loadedCount = 0;
-                let successCount = 0;
-                const totalModels = flowerPaths.length;
+                let loadedCount = 0; let successCount = 0; const totalModels = flowerPaths.length;
+                loadingText.textContent = `Loading models: 0% (0 successful)`; // Initial text
 
                 const checkAllLoaded = () => {
                     loadedCount++;
@@ -532,291 +369,180 @@
                     loadingBar.style.width = `${percent}%`;
                     loadingText.textContent = `Loading models: ${percent}% (${successCount} successful)`;
                     if (loadedCount >= totalModels) {
-                        debugLog(`Model loading complete: ${successCount}/${totalModels} models loaded.`);
-                        if (successCount > 0) {
-                            modelsLoaded = true;
-                        } else {
-                            debugLog('No GLB models loaded, creating fallbacks.');
-                            createFallbackFlowerModels();
-                            modelsLoaded = true; // Fallbacks are considered "loaded"
-                        }
+                        debugLog(`Model loading FINISHED: ${successCount}/${totalModels} models loaded.`);
+                        if (successCount > 0) modelsLoaded = true;
+                        else { createFallbackFlowerModels(); modelsLoaded = true; }
                         setTimeout(() => loadingScreen.style.display = 'none', 500);
                     }
                 };
-
+                if (totalModels === 0) { // Handle case of no models to load
+                    debugLog("No flower models defined in flowerPaths. Using fallbacks.");
+                    createFallbackFlowerModels(); modelsLoaded = true;
+                    setTimeout(() => loadingScreen.style.display = 'none', 500);
+                    return;
+                }
                 flowerPaths.forEach((flowerInfo, index) => {
                     setTimeout(() => {
                         loader.load(flowerInfo.path,
-                            (gltf) => {
-                                flowerModels.push({ model: gltf.scene, scale: flowerInfo.scale, type: 'gltf', name: flowerInfo.name });
-                                successCount++;
-                                debugLog(`Loaded: ${flowerInfo.path}`);
-                                checkAllLoaded();
-                            },
-                            undefined, // Progress callback (optional)
-                            (error) => {
-                                console.warn(`Error loading model ${flowerInfo.path}:`, error);
-                                debugLog(`Failed to load: ${flowerInfo.path}`);
-                                checkAllLoaded();
-                            }
+                            (gltf) => { flowerModels.push({ model: gltf.scene, scale: flowerInfo.scale, type: 'gltf', name: flowerInfo.name }); successCount++; debugLog(`Loaded: ${flowerInfo.path}`); checkAllLoaded(); },
+                            undefined,
+                            (error) => { console.warn(`Error loading model ${flowerInfo.path}:`, error); debugLog(`Failed model load: ${flowerInfo.path}`); checkAllLoaded(); }
                         );
-                    }, index * 150); // Stagger loading
+                    }, index * 150);
                 });
-                 // Timeout for loading
                 setTimeout(() => {
                     if (!modelsLoaded && successCount === 0) {
-                        debugLog('Model loading timeout. Using fallbacks.');
-                        createFallbackFlowerModels();
-                        modelsLoaded = true;
-                        if (loadingScreen.style.display !== 'none') {
-                           setTimeout(() => loadingScreen.style.display = 'none', 500);
-                        }
+                        debugLog('Model loading TIMEOUT. Using fallbacks.');
+                        createFallbackFlowerModels(); modelsLoaded = true;
+                        if (loadingScreen.style.display !== 'none') setTimeout(() => loadingScreen.style.display = 'none', 500);
                     }
-                }, 20000); // 20 second timeout
+                }, 20000);
+                debugLog('Fn: loadFlowerModels END (async operations started)');
             }
 
             function createFallbackFlowerModels() {
-                if (flowerModels.length > 0) return; // Don't create if GLBs loaded
-                debugLog('Creating fallback flower models...');
+                // ... (Fallback model creation - kept same)
+                if (flowerModels.length > 0) return;
+                debugLog('Fn: createFallbackFlowerModels START');
                 const flowerColors = [0xFF69B4, 0xFF0000, 0xFFD700, 0x9400D3, 0x1E90FF];
                 flowerColors.forEach((color, i) => {
-                    const group = new THREE.Group();
-                    const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
-                    const stemMat = new THREE.MeshLambertMaterial({ color: 0x2ECC71 });
-                    const stem = new THREE.Mesh(stemGeo, stemMat);
-                    stem.position.y = 0.2;
-                    group.add(stem);
-                    const headGeo = new THREE.SphereGeometry(0.1, 12, 12);
-                    const headMat = new THREE.MeshLambertMaterial({ color: color });
-                    const head = new THREE.Mesh(headGeo, headMat);
-                    head.position.y = 0.45;
-                    group.add(head);
+                    const group = new THREE.Group(); /* ... (rest of geometry) ... */
+                    const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8); const stemMat = new THREE.MeshLambertMaterial({ color: 0x2ECC71 }); const stem = new THREE.Mesh(stemGeo, stemMat); stem.position.y = 0.2; group.add(stem);
+                    const headGeo = new THREE.SphereGeometry(0.1, 12, 12); const headMat = new THREE.MeshLambertMaterial({ color: color }); const head = new THREE.Mesh(headGeo, headMat); head.position.y = 0.45; group.add(head);
                     flowerModels.push({ model: group, scale: 1, type: 'fallback', name: `Fallback ${i+1}` });
                 });
                 debugLog(`${flowerModels.length} fallback models created.`);
             }
 
             placeBtn.addEventListener('click', function() {
+                debugLog('Fn: placeBtn CLICKED.');
                 if (isPlaced || !modelsLoaded) {
-                    debugLog(`Cannot place: isPlaced=${isPlaced}, modelsLoaded=${modelsLoaded}`);
-                    if(!modelsLoaded) alert("Models are still loading or failed to load. Please wait or refresh.");
-                    return;
+                    debugLog(`PlaceBtn: CANNOT PLACE. isPlaced=${isPlaced}, modelsLoaded=${modelsLoaded}`);
+                    if(!modelsLoaded) alert("Models are still loading/failed. Please wait or refresh."); return;
                 }
-                if (!messageObject || !responseObject) {
-                    debugLog('CSS2D Objects not ready for placing.'); return;
+                if (!messageObject || !responseObject || !messageObject.element || !responseObject.element) {
+                    debugLog('PlaceBtn CRITICAL ERROR: CSS2DObjects or their .element not ready!'); return;
                 }
-                debugLog('Placing garden and 3D text...');
+                debugLog('PlaceBtn: Placing garden and 3D text...');
 
-                scene.add(messageObject);
-                messageObject.element.style.display = 'block'; // Make HTML visible
+                messageObject.element.style.display = 'block'; // Make HTML element renderable
+                messageObject.visible = true; // Make Three.js object visible
+                debugLog(`messageObject EL.DISPLAY: ${messageObject.element.style.display}, VISIBLE: ${messageObject.visible}`);
 
-                scene.add(responseObject);
-                responseObject.element.style.display = 'block'; // Make HTML visible
+                responseObject.element.style.display = 'block';
+                responseObject.visible = true;
+                debugLog(`responseObject EL.DISPLAY: ${responseObject.element.style.display}, VISIBLE: ${responseObject.visible}`);
 
+                placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
+                responseToggle.style.display = 'flex'; instructions.style.display = 'none';
+                if (window.ground) window.ground.visible = true;
 
-                placeBtn.style.display = 'none';
-                resetBtn.style.display = 'flex'; // Use flex if buttons are display:flex
-                responseToggle.style.display = 'flex';
-                instructions.style.display = 'none';
-                window.ground.visible = true;
-
-                placeFlowers();
-                isPlaced = true;
-                loadResponses();
+                placeFlowers(); isPlaced = true; loadResponses();
+                debugLog('PlaceBtn: Garden PLACED.');
             });
 
             resetBtn.addEventListener('click', function() {
-                if (!isPlaced) return;
-                 if (!messageObject || !responseObject) return;
-                debugLog('Resetting garden and 3D text...');
+                debugLog('Fn: resetBtn CLICKED.');
+                if (!isPlaced) { debugLog("ResetBtn: Nothing to reset, not placed."); return; }
+                if (!messageObject || !responseObject || !messageObject.element || !responseObject.element) {
+                    debugLog('ResetBtn CRITICAL ERROR: CSS2DObjects or .element not ready!'); return;
+                }
+                debugLog('ResetBtn: Resetting garden...');
 
-                scene.remove(messageObject);
-                messageObject.element.style.display = 'none';
-                scene.remove(responseObject);
+                messageObject.visible = false; // Hide Three.js object
+                messageObject.element.style.display = 'none'; // Hide HTML element
+                debugLog(`messageObject EL.DISPLAY: ${messageObject.element.style.display}, VISIBLE: ${messageObject.visible}`);
+
+                responseObject.visible = false;
                 responseObject.element.style.display = 'none';
+                debugLog(`responseObject EL.DISPLAY: ${responseObject.element.style.display}, VISIBLE: ${responseObject.visible}`);
 
-                resetBtn.style.display = 'none';
-                placeBtn.style.display = 'flex';
-                responseToggle.style.display = 'none';
-                responseForm.style.display = 'none';
+                resetBtn.style.display = 'none'; placeBtn.style.display = 'flex';
+                responseToggle.style.display = 'none'; responseForm.style.display = 'none';
                 instructions.style.display = 'block';
-                window.ground.visible = false;
+                if (window.ground) window.ground.visible = false;
 
-                removeFlowers();
-                if (window.responseInterval) clearInterval(window.responseInterval);
+                removeFlowers(); if (window.responseInterval) clearInterval(window.responseInterval);
                 isPlaced = false;
+                debugLog('ResetBtn: Garden RESET.');
             });
 
             responseToggle.addEventListener('click', function() {
                 const isVisible = responseForm.style.display === 'block';
                 responseForm.style.display = isVisible ? 'none' : 'block';
-                responseToggle.textContent = isVisible ? '+' : '✕'; // '✕' for close
+                responseToggle.textContent = isVisible ? '+' : '✕';
+                debugLog(`Response form toggled to: ${responseForm.style.display}`);
             });
 
             document.getElementById('garden-response-form').addEventListener('submit', function(e) {
+                // ... (Form submission - kept same, remember YOUR_SCRIPT_ID)
                 e.preventDefault();
-                const name = document.getElementById('name').value;
-                const message = document.getElementById('form-message').value; // Changed ID from 'message'
-                const timestamp = new Date().toLocaleString();
-                const statusDiv = document.getElementById('response-status');
-
-                if (!name.trim() || !message.trim()) {
-                    statusDiv.textContent = 'Please fill out all fields.';
-                    statusDiv.style.color = '#ff6b6b';
-                    return;
-                }
-                statusDiv.textContent = 'Submitting...';
-                statusDiv.style.color = 'white';
-
+                const name = document.getElementById('name').value; const message = document.getElementById('form-message').value;
+                const timestamp = new Date().toLocaleString(); const statusDiv = document.getElementById('response-status');
+                if (!name.trim() || !message.trim()) { statusDiv.textContent = 'Please fill all fields.'; statusDiv.style.color = '#ff6b6b'; return; }
+                statusDiv.textContent = 'Submitting...'; statusDiv.style.color = 'white';
                 const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'; // <-- REPLACE YOUR_SCRIPT_ID
-                const formData = new FormData();
-                formData.append('name', name);
-                formData.append('message', message);
-                formData.append('timestamp', timestamp);
-                formData.append('action', 'submitResponse'); // Add an action parameter
-
-                fetch(scriptURL, { method: 'POST', body: formData, mode: 'no-cors' }) // mode: 'no-cors' for simple POST
+                const formData = new FormData(); formData.append('name', name); formData.append('message', message); formData.append('timestamp', timestamp); formData.append('action', 'submitResponse');
+                fetch(scriptURL, { method: 'POST', body: formData, mode: 'no-cors' })
                     .then(() => {
-                        statusDiv.textContent = 'Thank you for sharing!';
-                        statusDiv.style.color = '#4CAF50';
+                        statusDiv.textContent = 'Thank you for sharing!'; statusDiv.style.color = '#4CAF50';
                         document.getElementById('garden-response-form').reset();
-                        if (window.responses) window.responses.push({ name, message });
-                        setTimeout(() => {
-                            responseForm.style.display = 'none';
-                            responseToggle.textContent = '+';
-                        }, 3000);
-                    })
-                    .catch(error => {
-                        console.error('Error submitting form:', error);
-                        statusDiv.textContent = 'Submission error. Please try again.';
-                        statusDiv.style.color = '#ff6b6b';
-                    });
+                        if (window.responses) window.responses.push({ name, message }); // Add locally
+                        setTimeout(() => { responseForm.style.display = 'none'; responseToggle.textContent = '+'; }, 3000);
+                    }).catch(error => { console.error('Form submission ERROR:', error); statusDiv.textContent = 'Submission error.'; statusDiv.style.color = '#ff6b6b';});
             });
 
             function placeFlowers() {
-                if (flowerModels.length === 0) {
-                    debugLog("No flower models available to place.");
-                    return;
-                }
-                debugLog(`Placing flowers with ${flowerModels.length} models...`);
-                const flowerCount = 120; // Reduced slightly for performance
-                const minDistance = 2.5;
-                const maxDistance = 12;
-                // --- ADJUSTED FLOWER HEIGHT ---
-                const minHeight = -1.0; // Lowered
-                const maxHeight = -0.4; // Lowered, flowers appear on/near ground plane
-                // --- END ADJUSTMENT ---
-
+                // ... (Flower placement - lowered height applied)
+                if (flowerModels.length === 0) { debugLog("No models to place flowers."); return; }
+                debugLog(`Fn: placeFlowers START with ${flowerModels.length} models.`);
+                const flowerCount = 120; const minDistance = 2.5; const maxDistance = 12;
+                const minHeight = -1.0; const maxHeight = -0.4; // Lowered height
                 const newFlowerGroup = { flowers: [], startTime: Date.now() };
-                for (let i = 0; i < flowerCount; i++) {
-                    const flowerInfo = flowerModels[Math.floor(Math.random() * flowerModels.length)];
-                    const angle = Math.random() * Math.PI * 2;
-                    const distance = minDistance + Math.random() * (maxDistance - minDistance);
-                    const x = Math.cos(angle) * distance;
-                    const z = Math.sin(angle) * distance;
-                    const y = minHeight + Math.random() * (maxHeight - minHeight);
-
+                for (let i = 0; i < flowerCount; i++) { /* ... (cloning and positioning logic kept same) ... */
+                    const flowerInfo = flowerModels[Math.floor(Math.random() * flowerModels.length)]; const angle = Math.random() * Math.PI * 2; const distance = minDistance + Math.random() * (maxDistance - minDistance);
+                    const x = Math.cos(angle) * distance; const z = Math.sin(angle) * distance; const y = minHeight + Math.random() * (maxHeight - minHeight);
                     try {
-                        const flowerModel = flowerInfo.model.clone();
-                        flowerModel.position.set(x, y, z);
-                        const scale = (0.3 + Math.random() * 0.5) * flowerInfo.scale;
-                        flowerModel.scale.set(scale, scale, scale);
-                        flowerModel.rotation.y = Math.random() * Math.PI * 2;
-                        scene.add(flowerModel);
-                        newFlowerGroup.flowers.push({
-                            model: flowerModel,
-                            swaySpeed: 0.5 + Math.random() * 1.5,
-                            swayAmount: 0.05 + Math.random() * 0.15,
-                            swayDirection: Math.random() > 0.5 ? 1 : -1,
-                            bobSpeed: 0.3 + Math.random() * 0.7,
-                            bobAmount: 0.03 + Math.random() * 0.05,
-                            initialPosition: flowerModel.position.clone(),
-                            initialRotation: flowerModel.rotation.clone()
-                        });
-                    } catch (e) {
-                        console.error("Error cloning/placing flower model:", e);
-                        debugLog(`Error placing flower ${i}`);
-                    }
+                        const flowerModel = flowerInfo.model.clone(); flowerModel.position.set(x,y,z); const scale = (0.3+Math.random()*0.5)*flowerInfo.scale; flowerModel.scale.set(scale,scale,scale); flowerModel.rotation.y = Math.random()*Math.PI*2; scene.add(flowerModel);
+                        newFlowerGroup.flowers.push({ model: flowerModel, swaySpeed:0.5+Math.random()*1.5, swayAmount:0.05+Math.random()*0.15, swayDirection:Math.random()>0.5?1:-1, bobSpeed:0.3+Math.random()*0.7, bobAmount:0.03+Math.random()*0.05, initialPosition:flowerModel.position.clone(), initialRotation:flowerModel.rotation.clone() });
+                    } catch(e){ console.error("Error cloning/placing flower:", e); debugLog(`Error placing flower ${i}`); }
                 }
-                flowers.push(newFlowerGroup);
-                debugLog(`Placed ${newFlowerGroup.flowers.length} flowers.`);
+                flowers.push(newFlowerGroup); debugLog(`Placed ${newFlowerGroup.flowers.length} flowers.`);
             }
 
-            function updateFlowerAnimations() {
-                if (flowers.length === 0 || !isPlaced) return;
-                const now = Date.now();
-                flowers.forEach(group => {
-                    const elapsed = (now - group.startTime) / 1000;
-                    group.flowers.forEach(flower => {
-                        flower.model.rotation.z = flower.initialRotation.z + Math.sin(elapsed * flower.swaySpeed) * flower.swayAmount * flower.swayDirection;
-                        flower.model.position.x = flower.initialPosition.x + Math.sin(elapsed * flower.bobSpeed * 0.7) * flower.bobAmount;
-                        flower.model.position.y = flower.initialPosition.y + Math.sin(elapsed * flower.bobSpeed) * flower.bobAmount * 0.5;
-                    });
-                });
+            function updateFlowerAnimations() { /* ... (Flower animation - kept same) ... */
+                if (flowers.length === 0 || !isPlaced) return; const now = Date.now();
+                flowers.forEach(group => { const elapsed = (now - group.startTime)/1000; group.flowers.forEach(flower => { flower.model.rotation.z = flower.initialRotation.z + Math.sin(elapsed * flower.swaySpeed) * flower.swayAmount * flower.swayDirection; flower.model.position.x = flower.initialPosition.x + Math.sin(elapsed * flower.bobSpeed * 0.7) * flower.bobAmount; flower.model.position.y = flower.initialPosition.y + Math.sin(elapsed * flower.bobSpeed) * flower.bobAmount * 0.5; }); });
             }
-
-            function removeFlowers() {
-                flowers.forEach(group => group.flowers.forEach(flower => scene.remove(flower.model)));
-                flowers = [];
-                debugLog('All flowers removed.');
+            function removeFlowers() { /* ... (Flower removal - kept same) ... */
+                flowers.forEach(group => group.flowers.forEach(flower => scene.remove(flower.model))); flowers = []; debugLog('All flowers removed.');
             }
 
             function loadResponses() {
-                window.responses = [ // Default/fallback responses
-                    { name: "User", message: "This could be a beautiful spot!" },
-                    { name: "Friend", message: "Imagine fresh veggies here." }
-                ];
-                 // URL of Google Apps Script - REPLACE YOUR_SCRIPT_ID
-                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses';
-                fetch(scriptURL) // Standard fetch, relies on CORS headers from Apps Script
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Network response was not ok: ${response.statusText}`);
-                        }
-                        return response.json();
-                    })
+                // ... (Response loading - kept same, remember YOUR_SCRIPT_ID and CORS in Apps Script)
+                debugLog('Fn: loadResponses START');
+                window.responses = [ { name: "DebugUser", message: "Test: Hope this appears!" }, { name: "Dev", message: "Test: Text should be visible." } ];
+                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses'; // <-- REPLACE
+                fetch(scriptURL).then(response => { if (!response.ok) throw new Error(`Net response NOT OK: ${response.statusText}`); return response.json(); })
                     .then(data => {
-                        if (data.result === 'success' && data.responses && data.responses.length > 0) {
-                            window.responses = data.responses;
-                            debugLog(`Loaded ${window.responses.length} responses from sheet.`);
-                        } else if (data.result === 'error') {
-                            throw new Error(`Script error: ${data.message}`);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error loading responses:', error);
-                        debugLog(`Error loading responses: ${error.message}. Using defaults.`);
-                    })
-                    .finally(() => {
-                        showNextResponse(); // Show initial response
-                        if (window.responseInterval) clearInterval(window.responseInterval);
-                        window.responseInterval = setInterval(showNextResponse, 10000); // Cycle every 10s
-                    });
+                        if (data.result === 'success' && data.responses && data.responses.length > 0) { window.responses = data.responses; debugLog(`Loaded ${window.responses.length} responses from sheet.`); }
+                        else if (data.result === 'error') { throw new Error(`Script error: ${data.message}`); }
+                        else { debugLog("Responses loaded, but no new responses or unexpected format."); }
+                    }).catch(error => { console.error('Error loading responses:', error); debugLog(`Load responses ERROR: ${error.message}. Using defaults.`); })
+                    .finally(() => { showNextResponse(); if (window.responseInterval) clearInterval(window.responseInterval); window.responseInterval = setInterval(showNextResponse, 10000); debugLog('Response cycling started/restarted.'); });
             }
 
             window.currentResponseIndex = -1;
             function showNextResponse() {
-                if (!window.responses || window.responses.length === 0) {
-                    responseObject.element.textContent = "No thoughts shared yet.";
-                    return;
-                }
-                let newIndex;
-                do {
-                    newIndex = Math.floor(Math.random() * window.responses.length);
-                } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
-                window.currentResponseIndex = newIndex;
-                const response = window.responses[window.currentResponseIndex];
-
-                // Update the content of the HTML element wrapped by CSS2DObject
-                responseObject.element.textContent = `"${response.message}" - ${response.name}`;
-
-                // CSS animations won't work well with CSS2DObjects,
-                // but you can do simple opacity if the element itself handles transition.
+                // ... (Show next response - updates responseObject.element.textContent)
+                if (!responseObject || !responseObject.element) { debugLog("showNextResponse: responseObject or element not ready."); return; }
+                if (!window.responses || window.responses.length === 0) { responseObject.element.textContent = "No thoughts shared yet."; return; }
+                let newIndex; do { newIndex = Math.floor(Math.random() * window.responses.length); } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
+                window.currentResponseIndex = newIndex; const response = window.responses[window.currentResponseIndex];
+                responseObject.element.textContent = `"${response.message}" - ${response.name}`; // This updates the HTML content
                 responseObject.element.style.transition = 'opacity 0.5s ease-in-out';
                 responseObject.element.style.opacity = 0;
-                setTimeout(() => {
-                    responseObject.element.style.opacity = 1;
-                }, 50); // Short delay for transition to catch
+                setTimeout(() => { responseObject.element.style.opacity = 1; }, 50);
             }
         });
     </script>
