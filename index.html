@@ -1,307 +1,53 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden?</title>
+    <title>Why can't this be a community garden? - Fixed Init</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/renderers/CSS2DRenderer.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
         /* --- CSS Styles (Keep As Is) --- */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Roboto', Arial, sans-serif;
-            overflow: hidden;
-            background-color: #000;
-        }
+        body { margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; overflow: hidden; background-color: #000; }
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; text-align: center; padding: 20px; box-sizing: border-box; }
+        #loading h1 { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 2.5em; margin-bottom: 15px; }
+        #loading p { font-size: 1.1em; margin-bottom: 20px;}
 
-        #loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 3000;
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+        #camera-feed { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        #css2d-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 
-        #loading h1 {
-            font-family: 'Roboto', sans-serif;
-            font-weight: 700;
-            font-size: 2.5em;
-            margin-bottom: 15px;
-        }
+        #message-container { color: white; background: none; padding: 5px; text-align: center; font-family: 'Gwendolyn', cursive; font-weight: 700; font-size: 30vw; line-height: 1.1; pointer-events: auto; text-shadow: 1px 1px 2px rgba(0,0,0,0.7), 2px 2px 5px rgba(0,0,0,0.5); white-space: normal; max-width: 90%; box-sizing: border-box; }
+        #response-display { color: #C8FFC5; background-color: rgba(0, 0, 0, 0.65); padding: 10px 15px; border-radius: 10px; text-align: center; font-family: 'Roboto', sans-serif; font-size: 18px; font-weight: 400; pointer-events: auto; max-width: 320px; box-sizing: border-box; text-shadow: 1px 1px 2px rgba(0,0,0,0.4); }
 
-        #loading p {
-            font-size: 1.1em;
-            margin-bottom: 20px;
-        }
+        .controls { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: space-around; padding: 0 20px; box-sizing: border-box; z-index: 100; }
+        .btn { width: 60px; height: 60px; border-radius: 50%; color: white; border: none; font-family: 'Roboto', sans-serif; font-size: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease; }
+        .btn:active { transform: scale(0.95); }
+        #place-btn { background-color: #4CAF50; }
+        #reset-btn { background-color: #f44336; display: none; }
+        #response-toggle { background-color: #2196F3; display: none; }
 
-        #camera-feed {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-        }
+        #response-form { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(5px); border-radius: 15px; padding: 20px; color: white; z-index: 200; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        #response-form input, #response-form textarea { width: calc(100% - 20px); padding: 10px; margin: 8px 0 12px; border: 1px solid #555; border-radius: 5px; background: rgba(255, 255, 255, 0.1); color: white; font-family: 'Roboto', Arial, sans-serif; font-size: 16px; }
+        #response-form input::placeholder, #response-form textarea::placeholder { color: #bbb; }
+        #response-form textarea { height: 80px; resize: none; }
+        #response-form button { background: #4CAF50; color: white; border: none; padding: 12px 18px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Roboto', sans-serif; width: 100%; font-size: 16px; transition: background-color 0.2s ease; }
+        #response-form button:hover { background: #45a049; }
+        #response-form h3 { margin-top: 0; text-align: center; font-weight: 700; }
+        #response-status { margin-top: 12px; text-align: center; font-weight: bold; min-height: 20px; }
 
-        #canvas-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            pointer-events: none;
-        }
+        #instructions { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(3px); color: white; padding: 12px 18px; border-radius: 10px; text-align: center; font-size: 16px; z-index: 100; max-width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        #permission-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 4000; display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; padding: 20px; box-sizing: border-box; }
+        #permission-overlay h2 { font-family: 'Roboto', sans-serif; font-weight: 700; }
+        #permission-btn { margin-top: 20px; padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 30px; font-size: 18px; font-family: 'Roboto', sans-serif; font-weight: 700; cursor: pointer; }
 
-        #css2d-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            pointer-events: none;
-        }
-
-        #message-container {
-            color: white;
-            background: none;
-            padding: 5px;
-            text-align: center;
-            font-family: 'Gwendolyn', cursive;
-            font-weight: 700;
-            font-size: 30vw;
-            line-height: 1.1;
-            pointer-events: auto;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7), 2px 2px 5px rgba(0, 0, 0, 0.5);
-            white-space: normal;
-            max-width: 90%;
-            box-sizing: border-box;
-        }
-
-        #response-display {
-            color: #C8FFC5;
-            background-color: rgba(0, 0, 0, 0.65);
-            padding: 10px 15px;
-            border-radius: 10px;
-            text-align: center;
-            font-family: 'Roboto', sans-serif;
-            font-size: 18px;
-            font-weight: 400;
-            pointer-events: auto;
-            max-width: 320px;
-            box-sizing: border-box;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
-        }
-
-        .controls {
-            position: fixed;
-            bottom: 20px;
-            width: 100%;
-            display: flex;
-            justify-content: space-around;
-            padding: 0 20px;
-            box-sizing: border-box;
-            z-index: 100;
-        }
-
-        .btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            color: white;
-            border: none;
-            font-family: 'Roboto', sans-serif;
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-        }
-
-        .btn:active {
-            transform: scale(0.95);
-        }
-
-        #place-btn {
-            background-color: #4CAF50;
-        }
-
-        #reset-btn {
-            background-color: #f44336;
-            display: none;
-        }
-
-        #response-toggle {
-            background-color: #2196F3;
-            display: none;
-        }
-
-        #response-form {
-            position: fixed;
-            bottom: 90px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 400px;
-            background: rgba(20, 20, 20, 0.85);
-            backdrop-filter: blur(5px);
-            border-radius: 15px;
-            padding: 20px;
-            color: white;
-            z-index: 200;
-            display: none;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        }
-
-        #response-form input,
-        #response-form textarea {
-            width: calc(100% - 20px);
-            padding: 10px;
-            margin: 8px 0 12px;
-            border: 1px solid #555;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            font-family: 'Roboto', Arial, sans-serif;
-            font-size: 16px;
-        }
-
-        #response-form input::placeholder,
-        #response-form textarea::placeholder {
-            color: #bbb;
-        }
-
-        #response-form textarea {
-            height: 80px;
-            resize: none;
-        }
-
-        #response-form button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px 18px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-family: 'Roboto', sans-serif;
-            width: 100%;
-            font-size: 16px;
-            transition: background-color 0.2s ease;
-        }
-
-        #response-form button:hover {
-            background: #45a049;
-        }
-
-        #response-form h3 {
-            margin-top: 0;
-            text-align: center;
-            font-weight: 700;
-        }
-
-        #response-status {
-            margin-top: 12px;
-            text-align: center;
-            font-weight: bold;
-            min-height: 20px;
-        }
-
-        #instructions {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(3px);
-            color: white;
-            padding: 12px 18px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 16px;
-            z-index: 100;
-            max-width: 80%;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        }
-
-        #permission-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            z-index: 4000;
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            color: white;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        #permission-overlay h2 {
-            font-family: 'Roboto', sans-serif;
-            font-weight: 700;
-        }
-
-        #permission-btn {
-            margin-top: 20px;
-            padding: 12px 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            font-size: 18px;
-            font-family: 'Roboto', sans-serif;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        #debug-info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #0f0;
-            padding: 8px 12px;
-            border-radius: 5px;
-            font-size: 11px;
-            font-family: monospace;
-            z-index: 2500;
-            display: none;
-            width: calc(100% - 40px);
-            max-height: 150px;
-            overflow-y: auto;
-            box-sizing: border-box;
-            border: 1px solid #333;
-        }
+        #debug-info { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 8px 12px; border-radius: 5px; font-size: 11px; font-family: monospace; z-index: 2500; display: none; width: calc(100% - 40px); max-height: 150px; overflow-y: auto; box-sizing: border-box; border: 1px solid #333; }
     </style>
 
     <script id="flowerVertexShader" type="x-shader/x-vertex">
@@ -323,41 +69,22 @@
         float get_stem_shape(vec2 _p, vec2 _plane_uv, float _w, float _angle) { _w = max(0.004, _w); _w *= 0.6; float bend_amount = 0.8; float x_offset = _p.y * sin(_angle * 2.0) * bend_amount; x_offset *= pow(max(0.0, _plane_uv.y), 1.5); _p.x -= x_offset; float noise_power = 0.6; float stem_noise = noise_power * snoise(8.0 * _plane_uv + vInstanceRandomVec2[0] * 5.0); stem_noise *= smoothstep(0.0, 0.15, length(_p)); stem_noise *= smoothstep(0.0, 0.05, _plane_uv.y); _p.x += stem_noise * 0.1; float left = smoothstep(-_w, 0.0, _p.x); float right = 1.0 - smoothstep(0.0, _w, _p.x); float stem_line = left * right; float grow_progress = pow(min(vInstanceStemGrowTime / 0.8, 1.0), 0.6); float grow_height = -0.5 + grow_progress * 0.5; float height_mask = smoothstep(grow_height - 0.05, grow_height, _p.y); float stem_shape = stem_line * height_mask; stem_shape *= smoothstep(0.01, -0.01, _p.y); stem_shape *= step(0.0, _plane_uv.y); return stem_shape; }
         void main() { vec2 centeredUv = vUv - 0.5; vec3 stem_color = vec3(0.1 + vInstanceRandomVec2[0] * 0.6, 0.6, 0.2); vec3 flower_color = vec3(0.6 + 0.5 * vInstanceRandomVec2[1], 0.1, 0.9 - 0.5 * vInstanceRandomVec2[1]); float angle = 1.5 * (vInstanceRandomVec2[0] - 0.5); float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle); float petals_back_number = 2.0 + floor(vInstanceRandomVec2[0] * 3.0); float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(vInstanceFlowerGrowTime, 1.5); float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5); float petals_front_number = 3.0 + floor(vInstanceRandomVec2[1] * 3.0); float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0); vec3 final_color = vec3(0.0); final_color += (stem_shape * stem_color); final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(vInstanceFlowerGrowTime, 1.0), 0.0))); final_color += (flower_front_shape * flower_color); final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape); final_color.b *= 1.0 - (flower_back_shape * flower_front_shape); float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape)); alpha = smoothstep(0.0, 0.05, alpha); alpha *= 0.7; if (alpha < 0.01) discard; gl_FragColor = vec4(final_color, alpha); }
     </script>
-</head>
-
+    </head>
 <body>
-    <div id="loading">
-        <h1>Why can't...?</h1>
-        <p>Loading experience...</p>
-    </div>
-    <div id="permission-overlay">
-        <h2>Motion Sensors Required</h2>
-        <p>This AR experience needs access to your device's motion sensors to look around.</p> <button
-            id="permission-btn">Allow Motion Sensors</button>
-    </div>
+    <div id="loading"> <h1>Why can't...?</h1> <p>Loading experience...</p> </div>
+    <div id="permission-overlay"> <h2>Motion Sensors Required</h2> <p>This AR experience needs access to your device's motion sensors to look around.</p> <button id="permission-btn">Allow Motion Sensors</button> </div>
     <video id="camera-feed" autoplay playsinline muted></video>
     <div id="canvas-container"></div>
-    <div id="message-container" style="display: none;">
-        <p id="message-text">Why can't this be a community garden?</p>
-    </div>
+    <div id="message-container" style="display: none;"> <p id="message-text">Why can't this be a community garden?</p> </div>
     <div id="response-display" style="display: none;"></div>
     <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
-    <div class="controls"> <button id="response-toggle" class="btn" title="Share thoughts">+</button> <button
-            id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn"
-            title="Reset Garden">↺</button> </div>
-    <div id="response-form">
-        <h3>Share Your Thoughts</h3>
-        <form id="garden-response-form"> <label for="name">Your Name:</label> <input type="text" id="name" name="name"
-                placeholder="e.g., Alex P." required> <label for="form-message">Why can't this be a community
-                garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..."
-                required></textarea> <button type="submit">Submit Idea</button> </form>
-        <div id="response-status"></div>
-    </div>
+    <div class="controls"> <button id="response-toggle" class="btn" title="Share thoughts">+</button> <button id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn" title="Reset Garden">↺</button> </div>
+    <div id="response-form"> <h3>Share Your Thoughts</h3> <form id="garden-response-form"> <label for="name">Your Name:</label> <input type="text" id="name" name="name" placeholder="e.g., Alex P." required> <label for="form-message">Why can't this be a community garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea> <button type="submit">Submit Idea</button> </form> <div id="response-status"></div> </div>
     <div id="debug-info"></div>
 
     <script type="module">
 
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
             const permissionBtn = document.getElementById('permission-btn');
@@ -393,7 +120,7 @@
             else debugInfo.style.display = 'none';
 
             function debugLog(message) {
-                if (debugMode) { console.log(message); const d = new Date(); const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`; debugInfo.innerHTML = `[${time}] ${message}<br>` + debugInfo.innerHTML.substring(0, 1000); }
+                 if (debugMode) { console.log(message); const d = new Date(); const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`; debugInfo.innerHTML = `[${time}] ${message}<br>` + debugInfo.innerHTML.substring(0, 1000); }
             }
 
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -418,26 +145,26 @@
                 console.log("DEBUG: requestMotionPermission() called");
                 debugLog('Fn: requestMotionPermission START');
                 DeviceOrientationEvent.requestPermission().then(response => {
-                    if (response === 'granted') {
-                        debugLog('Motion permission: GRANTED.'); permissionOverlay.style.display = 'none';
-                        if (loadingScreen) loadingScreen.style.display = 'none';
-                        console.log("DEBUG: Calling initThree() from requestMotionPermission (granted)");
-                        initThree();
-                    } else {
-                        debugLog('Motion permission: DENIED.'); alert('Motion sensor access is required for this experience.');
-                        if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload and grant permission.</p>';
-                    }
-                }).catch(error => {
-                    debugLog('Motion permission ERROR: ' + error); alert('Error requesting motion sensor access.');
-                    if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
-                });
-                debugLog('Fn: requestMotionPermission END');
+                     if (response === 'granted') {
+                         debugLog('Motion permission: GRANTED.'); permissionOverlay.style.display = 'none';
+                         if (loadingScreen) loadingScreen.style.display = 'none';
+                         console.log("DEBUG: Calling initThree() from requestMotionPermission (granted)");
+                         initThree();
+                     } else {
+                         debugLog('Motion permission: DENIED.'); alert('Motion sensor access is required for this experience.');
+                         if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload and grant permission.</p>';
+                     }
+                 }).catch(error => {
+                     debugLog('Motion permission ERROR: ' + error); alert('Error requesting motion sensor access.');
+                     if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
+                 });
+                 debugLog('Fn: requestMotionPermission END');
             }
             function startCamera() { /* ... (Keep as is) ... */ }
 
             function initThree() {
                 try {
-                    console.log("DEBUG: initThree() START"); // <<< ADDED CONSOLE LOG
+                    console.log("DEBUG: initThree() START");
                     debugLog('Fn: initThree START (Instanced - Separate Growth)');
                     scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.set(0, 1.6, 0);
                     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setClearColor(0x000000, 0); canvasContainer.appendChild(renderer.domElement);
@@ -450,22 +177,26 @@
 
                     instancedFlowers = new THREE.InstancedMesh(baseFlowerGeometry, baseFlowerMaterial, MAX_FLOWERS);
                     instancedFlowers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-                    baseFlowerGeometry.setAttribute('instanceRandomVec2', new THREE.InstancedBufferAttribute(instanceRandomVec2s, 2));
-                    baseFlowerGeometry.setAttribute('instanceStemGrowTime', new THREE.InstancedBufferAttribute(instanceStemGrowTimes, 1));
-                    baseFlowerGeometry.setAttribute('instanceFlowerGrowTime', new THREE.InstancedBufferAttribute(instanceFlowerGrowTimes, 1));
+
+                    // <<< --- CORRECTED ATTRIBUTE SETTING --- >>>
+                    instancedFlowers.geometry.setAttribute('instanceRandomVec2', new THREE.InstancedBufferAttribute(instanceRandomVec2s, 2));
+                    instancedFlowers.geometry.setAttribute('instanceStemGrowTime', new THREE.InstancedBufferAttribute(instanceStemGrowTimes, 1));
+                    instancedFlowers.geometry.setAttribute('instanceFlowerGrowTime', new THREE.InstancedBufferAttribute(instanceFlowerGrowTimes, 1));
+                    // <<< --- END CORRECTION --- >>>
+
                     instancedFlowers.count = 0;
                     scene.add(instancedFlowers);
-                    console.log("DEBUG: instancedFlowers object:", instancedFlowers); // <<< ADDED CONSOLE LOG
+                    console.log("DEBUG: instancedFlowers object:", instancedFlowers);
                     debugLog(`InstancedMesh created for ${MAX_FLOWERS} max flowers (Separate Growth).`);
 
                     createCSS2DObjects(); window.addEventListener('resize', onWindowResize); animate();
-                    console.log("DEBUG: initThree() COMPLETED SUCCESSFULLY"); // <<< ADDED CONSOLE LOG
+                    console.log("DEBUG: initThree() COMPLETED SUCCESSFULLY");
                     debugLog('Fn: initThree END (Instanced - Separate Growth).');
-                } catch (error) {
-                    console.error("DEBUG: CRITICAL ERROR during Three.js initialization:", error); // <<< ENHANCED CATCH
-                    debugLog("THREE.JS INIT CRASH: " + error.message);
-                    alert("A critical rendering error occurred. Please try reloading the page.");
-                }
+                 } catch (error) {
+                     console.error("DEBUG: CRITICAL ERROR during Three.js initialization:", error);
+                     debugLog("THREE.JS INIT CRASH: " + error.message);
+                     alert("A critical rendering error occurred. Please try reloading the page.");
+                 }
             }
             function createBaseFlowerGeometry() { /* ... (Keep as is) ... */ }
             function createBaseFlowerMaterial() { /* ... (Keep as is) ... */ }
@@ -483,7 +214,12 @@
                     instanceStemGrowDuration[i] = 0.6 + Math.random() * 0.4; instanceFlowerGrowDuration[i] = 1.0 + Math.random() * 1.0;
                     setTimeout(() => { instanceIsBlooming[i] = true; }, 200 + Math.random() * 3000);
                 }
-                instancedFlowers.instanceMatrix.needsUpdate = true; instancedFlowers.geometry.attributes.instanceRandomVec2.needsUpdate = true; instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true; instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true; instancedFlowers.count = currentFlowerCount;
+                instancedFlowers.instanceMatrix.needsUpdate = true;
+                // Check if attributes exist before setting needsUpdate
+                if (instancedFlowers.geometry.attributes.instanceRandomVec2) instancedFlowers.geometry.attributes.instanceRandomVec2.needsUpdate = true;
+                if (instancedFlowers.geometry.attributes.instanceStemGrowTime) instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true;
+                if (instancedFlowers.geometry.attributes.instanceFlowerGrowTime) instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true;
+                instancedFlowers.count = currentFlowerCount;
                 debugLog(`Placed ${currentFlowerCount} instanced flowers (Separate Growth).`);
             }
             function removeFlowers() { /* ... (Keep as is) ... */ }
@@ -492,41 +228,40 @@
             function onWindowResize() { /* ... (Keep as is) ... */ }
 
             // --- UI Event Listeners ---
-            if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
-            else {
-                debugLog("placeBtn element FOUND. Attaching listener.");
-                placeBtn.addEventListener('click', function () {
-                    alert("DEBUG: Place button was clicked!"); // <<< ADDED ALERT
-                    console.log("DEBUG: Place button click handler initiated."); // <<< ADDED CONSOLE LOG
-                    debugLog('Fn: placeBtn CLICKED (Instanced - Separate Growth).');
+             if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
+             else {
+                 debugLog("placeBtn element FOUND. Attaching listener.");
+                 placeBtn.addEventListener('click', function() {
+                     alert("DEBUG: Place button was clicked!");
+                     console.log("DEBUG: Place button click handler initiated.");
+                     debugLog('Fn: placeBtn CLICKED (Instanced - Separate Growth).');
 
-                    if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
+                     if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
 
-                    // <<< ENHANCED GUARD CLAUSE >>>
-                    if (!instancedFlowers || !scene || !camera) {
-                        console.error('DEBUG: PlaceBtn CRITICAL - Prerequisite objects not ready!', {
-                            instancedFlowersReady: !!instancedFlowers,
-                            sceneReady: !!scene,
-                            cameraReady: !!camera
-                        });
-                        debugLog('PlaceBtn: CRITICAL - InstancedMesh, Scene, or Camera not ready! initThree() might not have completed or run.');
-                        alert("The garden components are not ready yet. Please wait a moment. If this persists, try reloading or check permissions.");
-                        return;
-                    }
+                     if (!instancedFlowers || !scene || !camera) {
+                         console.error('DEBUG: PlaceBtn CRITICAL - Prerequisite objects not ready!', {
+                             instancedFlowersReady: !!instancedFlowers,
+                             sceneReady: !!scene,
+                             cameraReady: !!camera
+                         });
+                         debugLog('PlaceBtn: CRITICAL - InstancedMesh, Scene, or Camera not ready! initThree() might not have completed or run.');
+                         alert("The garden components are not ready yet. Please wait a moment. If this persists, try reloading or check permissions.");
+                         return;
+                     }
 
-                    if (messageObject && responseObject && messageObject.element && responseObject.element) {
+                     if (messageObject && responseObject && messageObject.element && responseObject.element) {
                         messageObject.visible = true; messageObject.element.style.display = 'block';
                         responseObject.visible = true; responseObject.element.style.display = 'block';
-                    } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
-                    placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
-                    responseToggle.style.display = 'flex'; instructions.style.display = 'none';
-                    placeFlowers();
-                    isPlaced = true; loadResponses();
-                    debugLog('PlaceBtn: Instanced Garden PLACED.');
-                });
-            }
-            if (!resetBtn) { /* ... (Keep as is) ... */ } else { /* ... */ }
-            if (!responseToggle) { /* ... (Keep as is) ... */ } else { /* ... */ }
+                     } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
+                     placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
+                     responseToggle.style.display = 'flex'; instructions.style.display = 'none';
+                     placeFlowers();
+                     isPlaced = true; loadResponses();
+                     debugLog('PlaceBtn: Instanced Garden PLACED.');
+                 });
+             }
+             if (!resetBtn) { /* ... (Keep as is) ... */ } else { /* ... */ }
+             if (!responseToggle) { /* ... (Keep as is) ... */ } else { /* ... */ }
 
             // --- Response Loading and Form Submission Logic ---
             function loadResponses() { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */ }
@@ -535,11 +270,10 @@
             if (!gardenForm) { /* ... (Keep as is) ... */ } else { /* ... */ }
 
             // Hide loading screen
-            if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
-                setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
-            }
+             if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
+                 setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
+             }
         });
     </script>
-</body>
-
+    </body>
 </html>
