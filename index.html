@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Garden - Phased Growth (Rollback)</title>
+    <title>AR Garden - Debugging UI & Responses</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
+        /* --- CSS Styles (Keep As Is) --- */
         body { margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; overflow: hidden; background-color: #000; }
         #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; text-align: center; padding: 20px; box-sizing: border-box; }
         #loading h1 { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 2.5em; margin-bottom: 15px; }
@@ -76,8 +77,8 @@
             final_color.b *= 1.0 - (flower_back_shape * flower_front_shape);
             float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape));
             alpha = smoothstep(0.0, 0.05, alpha);
-            alpha *= 0.7; // Semi-transparency
-            if (alpha < 0.01) discard; // Discard if very transparent
+            alpha *= 0.7; // Apply semi-transparency
+            if (alpha < 0.01) discard;
             gl_FragColor = vec4(final_color, alpha);
         }
     </script>
@@ -88,15 +89,14 @@
     <video id="camera-feed" autoplay playsinline muted></video>
     <div id="canvas-container"></div>
     <div id="message-container" style="display: none;"> <p id="message-text">Why can't this be a community garden?</p> </div>
-    <div id="response-display" style="display: none;"></div>
-    <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
+    <div id="response-display" style="display: none;"></div> <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
     <div class="controls"> <button id="response-toggle" class="btn" title="Share thoughts">+</button> <button id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn" title="Reset Garden">↺</button> </div>
     <div id="response-form"> <h3>Share Your Thoughts</h3> <form id="garden-response-form"> <label for="name">Your Name:</label> <input type="text" id="name" name="name" placeholder="e.g., Alex P." required> <label for="form-message">Why can't this be a community garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea> <button type="submit">Submit Idea</button> </form> <div id="response-status"></div> </div>
     <div id="debug-info"></div>
 
     <script type="module">
         document.addEventListener('DOMContentLoaded', function() {
-            let debugInfo = null; // Declared early
+            let debugInfo = null;
 
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
@@ -111,14 +111,14 @@
             const messageElement = document.getElementById('message-container');
             const responseElement = document.getElementById('response-display');
 
-            debugInfo = document.getElementById('debug-info'); // Assigned after DOM query
+            debugInfo = document.getElementById('debug-info');
 
             let scene, camera, renderer, controls, css2dRenderer, clock;
-            let messageObject, responseObject;
+            let messageObject, responseObject; // For CSS2D text
             let isPlaced = false;
 
             let instancedFlowers;
-            const MAX_FLOWERS = 2500; // <<< TWEAK THIS for number of flowers
+            const MAX_FLOWERS = 2500;
             let currentFlowerCount = 0;
             let instanceStemGrowTimes = new Float32Array(MAX_FLOWERS);
             let instanceFlowerGrowTimes = new Float32Array(MAX_FLOWERS);
@@ -132,20 +132,15 @@
             const debugMode = urlParams.has('debug');
 
             if (debugMode) {
-                if (debugInfo) {
-                    debugInfo.style.display = 'block';
-                } else {
-                    console.warn("debugInfo element not found, cannot display debug overlay.");
-                }
+                if (debugInfo) debugInfo.style.display = 'block';
+                else console.warn("debugInfo element not found, cannot display debug overlay.");
             } else {
-                if (debugInfo) {
-                    debugInfo.style.display = 'none';
-                }
+                if (debugInfo) debugInfo.style.display = 'none';
             }
 
             function debugLog(message) {
                  if (debugMode) {
-                    console.log("LOG:", message); // Use simple console.log for reliability
+                    console.log("LOG:", message);
                     if (debugInfo) {
                         const d = new Date();
                         const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`;
@@ -181,8 +176,8 @@
                          initThree();
                      } else {
                          console.warn("requestMotionPermission: DENIED");
-                         alert('Motion sensor access is required for this experience.');
-                         if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload and grant permission.</p>';
+                         alert('Motion sensor access is required.');
+                         if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload.</p>';
                      }
                  }).catch(error => {
                      console.error('requestMotionPermission: ERROR', error);
@@ -193,23 +188,18 @@
             function startCamera() {
                 console.log("startCamera: Called");
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    alert('Camera access not supported by your browser.');
-                    if (loadingScreen) loadingScreen.innerHTML = '<p>Camera access not supported.</p>';
-                    return;
+                    alert('Camera access not supported.'); if (loadingScreen) loadingScreen.innerHTML = '<p>Camera not supported.</p>'; return;
                 }
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: window.innerWidth }, height: { ideal: window.innerHeight } } })
                     .then(stream => {
                         cameraFeed.srcObject = stream;
-                        cameraFeed.onloadedmetadata = () => {
-                            console.log('startCamera: Camera feed metadata loaded and playing.');
-                            cameraFeed.play();
-                        };
+                        cameraFeed.onloadedmetadata = () => { console.log('startCamera: Camera feed active.'); cameraFeed.play(); };
                     })
                     .catch(err => {
                         console.error('startCamera: Camera access ERROR:', err);
                          if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-                            alert("Camera access denied. Please grant permission in your browser settings and reload.");
-                            if (loadingScreen) loadingScreen.innerHTML = '<p>Camera access denied. Please grant permission and reload.</p>';
+                            alert("Camera access denied. Please grant permission and reload.");
+                            if (loadingScreen) loadingScreen.innerHTML = '<p>Camera access denied. Reload.</p>';
                         } else {
                             alert('Could not access camera. Error: ' + err.message);
                             if (loadingScreen) loadingScreen.innerHTML = '<p>Could not access camera.</p>';
@@ -222,11 +212,11 @@
                     console.log("initThree: START");
                     scene = new THREE.Scene();
                     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                    camera.position.set(0, 1.6, 0); // Approx user eye height
+                    camera.position.set(0, 1.6, 0);
 
                     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                     renderer.setSize(window.innerWidth, window.innerHeight);
-                    renderer.setClearColor(0x000000, 0); // Transparent background
+                    renderer.setClearColor(0x000000, 0);
                     canvasContainer.appendChild(renderer.domElement);
 
                     css2dRenderer = new THREE.CSS2DRenderer();
@@ -237,22 +227,16 @@
                     controls = new THREE.DeviceOrientationControls(camera);
                     clock = new THREE.Clock();
 
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-                    scene.add(ambientLight);
-                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
-                    directionalLight.position.set(1, 3, 2);
-                    scene.add(directionalLight);
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambientLight);
+                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7); directionalLight.position.set(1, 3, 2); scene.add(directionalLight);
 
                     const baseFlowerGeometry = createBaseFlowerGeometry();
                     const baseFlowerMaterial = createBaseFlowerMaterial();
-
                     instancedFlowers = new THREE.InstancedMesh(baseFlowerGeometry, baseFlowerMaterial, MAX_FLOWERS);
                     instancedFlowers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-
                     instancedFlowers.geometry.setAttribute('instanceRandomVec2', new THREE.InstancedBufferAttribute(instanceRandomVec2s, 2));
                     instancedFlowers.geometry.setAttribute('instanceStemGrowTime', new THREE.InstancedBufferAttribute(instanceStemGrowTimes, 1));
                     instancedFlowers.geometry.setAttribute('instanceFlowerGrowTime', new THREE.InstancedBufferAttribute(instanceFlowerGrowTimes, 1));
-
                     instancedFlowers.count = 0;
                     scene.add(instancedFlowers);
                     console.log("initThree: InstancedFlowers mesh created:", instancedFlowers);
@@ -263,30 +247,29 @@
                     console.log("initThree: COMPLETED SUCCESSFULLY");
                  } catch (error) {
                      console.error("initThree: CRITICAL ERROR during initialization:", error);
-                     alert("A critical rendering error occurred. Please try reloading the page.");
+                     alert("A critical rendering error occurred. Please try reloading.");
                  }
             }
-            function createBaseFlowerGeometry() {
-                 const flowerSize = 1.8; // <<< TWEAK THIS for base plane size
-                 console.log(`createBaseFlowerGeometry: Size ${flowerSize}`);
-                 return new THREE.PlaneGeometry(flowerSize, flowerSize);
-            }
-            function createBaseFlowerMaterial() {
-                 const uniforms = { u_time: { value: 0.0 }, };
-                 return new THREE.ShaderMaterial({
-                    uniforms: uniforms,
-                    vertexShader: document.getElementById('flowerVertexShader').textContent,
-                    fragmentShader: document.getElementById('flowerFragmentShader').textContent,
-                    transparent: true,
-                    side: THREE.DoubleSide,
-                    depthWrite: false
-                 });
-            }
+            function createBaseFlowerGeometry() { const flowerSize = 1.8; return new THREE.PlaneGeometry(flowerSize, flowerSize); }
+            function createBaseFlowerMaterial() { const uniforms = { u_time: { value: 0.0 }, }; return new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: document.getElementById('flowerVertexShader').textContent, fragmentShader: document.getElementById('flowerFragmentShader').textContent, transparent: true, side: THREE.DoubleSide, depthWrite: false });}
+
             function createCSS2DObjects() {
                 console.log("createCSS2DObjects: Called");
-                if (!messageElement || !responseElement) { console.error('createCSS2DObjects: HTML element for text not found!'); return; }
-                messageObject = new THREE.CSS2DObject(messageElement); messageObject.position.set(0, 1.8, -4.0); scene.add(messageObject); messageObject.visible = false;
-                responseObject = new THREE.CSS2DObject(responseElement); responseObject.position.set(0, 0.5, -3.8); scene.add(responseObject); responseObject.visible = false;
+                if (!messageElement) { console.error('createCSS2DObjects: messageElement not found!'); }
+                else {
+                    messageObject = new THREE.CSS2DObject(messageElement);
+                    messageObject.position.set(0, 1.8, -4.0); scene.add(messageObject); messageObject.visible = false;
+                    console.log("createCSS2DObjects: messageObject created", messageObject);
+                }
+
+                if (!responseElement) { console.error('createCSS2DObjects: responseElement not found!');}
+                else {
+                    responseObject = new THREE.CSS2DObject(responseElement);
+                    // <<< TEMPORARY POSITION CHANGE FOR DEBUGGING RESPONSES >>>
+                    responseObject.position.set(1, 2, -3); // More distinct position
+                    scene.add(responseObject); responseObject.visible = false;
+                    console.log("createCSS2DObjects: responseObject created", responseObject, "at position", responseObject.position);
+                }
             }
 
             function placeFlowers() {
@@ -294,28 +277,25 @@
                 if (!instancedFlowers) { console.error("placeFlowers: InstancedMesh not ready."); return; }
                 const flowerCount = MAX_FLOWERS; const minDistance = 1.5; const maxDistance = 18.0; const minHeight = -2.0; const maxHeight = 1.5;
                 instanceIsBlooming.fill(false); instanceStemGrowTimes.fill(0); instanceFlowerGrowTimes.fill(0); instanceRandomVec2s.fill(0); instanceStemGrowDuration.fill(0); instanceFlowerGrowDuration.fill(0); currentFlowerCount = flowerCount;
-
                 for (let i = 0; i < currentFlowerCount; i++) {
                     const angle = Math.random() * Math.PI * 2; const distance = minDistance + Math.random() * (maxDistance - minDistance); const x = Math.cos(angle) * distance; const z = Math.sin(angle) * distance; const y = (camera.position.y - 1.6) + (minHeight + Math.random() * (maxHeight - minHeight));
                     dummy.position.set(x, y, z); dummy.rotation.set(Math.random() * 0.4 - 0.2, Math.random() * Math.PI * 2, Math.random() * 0.4 - 0.2); const scaleVariation = 0.6 + Math.random() * 0.8; dummy.scale.set(scaleVariation, scaleVariation, scaleVariation); dummy.updateMatrix(); instancedFlowers.setMatrixAt(i, dummy.matrix);
                     instanceRandomVec2s[i * 2 + 0] = Math.random(); instanceRandomVec2s[i * 2 + 1] = Math.random(); instanceStemGrowTimes[i] = 0.0; instanceFlowerGrowTimes[i] = 0.0;
-                    instanceStemGrowDuration[i] = 0.6 + Math.random() * 0.4;   // <<< TWEAK stem grow duration
-                    instanceFlowerGrowDuration[i] = 1.0 + Math.random() * 1.0; // <<< TWEAK flower bloom duration
-                    setTimeout(() => { instanceIsBlooming[i] = true; }, 200 + Math.random() * 3000); // <<< TWEAK stagger
+                    instanceStemGrowDuration[i] = 0.6 + Math.random() * 0.4; instanceFlowerGrowDuration[i] = 1.0 + Math.random() * 1.0;
+                    setTimeout(() => { instanceIsBlooming[i] = true; }, 200 + Math.random() * 3000);
                 }
                 instancedFlowers.instanceMatrix.needsUpdate = true;
                 if (instancedFlowers.geometry.attributes.instanceRandomVec2) instancedFlowers.geometry.attributes.instanceRandomVec2.needsUpdate = true;
                 if (instancedFlowers.geometry.attributes.instanceStemGrowTime) instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true;
                 if (instancedFlowers.geometry.attributes.instanceFlowerGrowTime) instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true;
                 instancedFlowers.count = currentFlowerCount;
-                console.log(`placeFlowers: Placed ${currentFlowerCount} instanced flowers.`);
+                console.log(`placeFlowers: Placed ${currentFlowerCount} flowers.`);
             }
 
             function removeFlowers() {
                 if (instancedFlowers) {
                     console.log(`removeFlowers: Hiding ${instancedFlowers.count} flowers.`);
                     instancedFlowers.count = 0;
-                    // instancedFlowers.instanceMatrix.needsUpdate = true; // May not be strictly needed if count = 0
                     instanceIsBlooming.fill(false); instanceStemGrowTimes.fill(0); instanceFlowerGrowTimes.fill(0); currentFlowerCount = 0;
                 }
             }
@@ -325,7 +305,12 @@
                 if (controls) controls.update();
                 if (!clock || !instancedFlowers) return;
                 const delta = clock.getDelta(); const elapsedTime = clock.getElapsedTime();
-                if (isPlaced) { updateFlowerAnimations(delta, elapsedTime); }
+                if (isPlaced) {
+                    updateFlowerAnimations(delta, elapsedTime);
+                    if (responseObject && responseObject.visible) { // Log response object state if placed and supposed to be visible
+                        // console.log(`Animate: ResponseObj Pos: X=${responseObject.position.x.toFixed(1)},Y=${responseObject.position.y.toFixed(1)},Z=${responseObject.position.z.toFixed(1)} Visible: ${responseObject.visible}`);
+                    }
+                }
                 if (renderer && scene && camera) renderer.render(scene, camera);
                 if (css2dRenderer && scene && camera) css2dRenderer.render(scene, camera);
             }
@@ -338,11 +323,8 @@
                     if (instanceIsBlooming[i]) {
                         let currentStemTime = instanceStemGrowTimes[i]; let currentFlowerTime = instanceFlowerGrowTimes[i];
                         const stemDuration = instanceStemGrowDuration[i]; const flowerDuration = instanceFlowerGrowDuration[i];
-                        if (currentStemTime < stemDuration) {
-                            currentStemTime += delta; instancedFlowers.geometry.attributes.instanceStemGrowTime.setX(i, currentStemTime); needsStemTimeUpdate = true;
-                        } else if (currentFlowerTime < flowerDuration) {
-                            currentFlowerTime += delta; instancedFlowers.geometry.attributes.instanceFlowerGrowTime.setX(i, currentFlowerTime); needsFlowerTimeUpdate = true;
-                        }
+                        if (currentStemTime < stemDuration) { currentStemTime += delta; instancedFlowers.geometry.attributes.instanceStemGrowTime.setX(i, currentStemTime); needsStemTimeUpdate = true; }
+                        else if (currentFlowerTime < flowerDuration) { currentFlowerTime += delta; instancedFlowers.geometry.attributes.instanceFlowerGrowTime.setX(i, currentFlowerTime); needsFlowerTimeUpdate = true; }
                         instanceStemGrowTimes[i] = currentStemTime; instanceFlowerGrowTimes[i] = currentFlowerTime;
                     }
                  }
@@ -350,12 +332,7 @@
                  if (needsFlowerTimeUpdate) instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true;
             }
 
-            function onWindowResize() {
-                camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                if (css2dRenderer) css2dRenderer.setSize(window.innerWidth, window.innerHeight);
-                console.log('onWindowResize: Executed.');
-             }
+            function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); if (css2dRenderer) css2dRenderer.setSize(window.innerWidth, window.innerHeight); console.log('onWindowResize: Executed.'); }
 
             // --- UI Event Listeners ---
              if (!placeBtn) { console.error("CRITICAL ERROR: placeBtn element not found!"); }
@@ -364,23 +341,74 @@
                  placeBtn.addEventListener('click', function() {
                      console.log("placeBtn: CLICKED.");
                      if (isPlaced) { console.log(`placeBtn: Already placed.`); return; }
-                     if (!instancedFlowers || !scene || !camera) {
-                         console.error('placeBtn: CRITICAL - Prerequisite objects not ready!', { instancedFlowersReady: !!instancedFlowers, sceneReady: !!scene, cameraReady: !!camera });
-                         alert("The garden components are not ready yet. Please wait a moment or ensure permissions are granted."); return;
-                     }
-                     if (messageObject && responseObject && messageObject.element && responseObject.element) { messageObject.visible = true; messageObject.element.style.display = 'block'; responseObject.visible = true; responseObject.element.style.display = 'block'; } else { console.warn('placeBtn: CSS2DObjects/elements not ready for text display.'); }
+                     if (!instancedFlowers || !scene || !camera) { console.error('placeBtn: CRITICAL - Prerequisite objects not ready!'); alert("Garden components not ready yet."); return; }
+
+                     if (messageObject && messageObject.element) {
+                         messageObject.visible = true; messageObject.element.style.display = 'block';
+                         console.log("placeBtn: messageObject visibility set to true, display to block");
+                     } else { console.warn('placeBtn: messageObject or element not ready for text display.'); }
+
+                     if (responseObject && responseObject.element) {
+                         responseObject.visible = true; responseObject.element.style.display = 'block';
+                         console.log("placeBtn: responseObject visibility set to true, display to block. Position:", responseObject.position);
+                     } else { console.warn('placeBtn: responseObject or element not ready for text display.'); }
+
                      placeBtn.style.display = 'none'; resetBtn.style.display = 'flex'; responseToggle.style.display = 'flex'; instructions.style.display = 'none';
                      placeFlowers(); isPlaced = true; loadResponses(); console.log('placeBtn: Instanced Garden PLACED.');
                  });
              }
-             if (!resetBtn) { /* ... */ } else { resetBtn.addEventListener('click', function() { /* ... */ }); }
-             if (!responseToggle) { /* ... */ } else { responseToggle.addEventListener('click', function() { /* ... */ }); }
+
+             if (!resetBtn) { console.error("CRITICAL ERROR: resetBtn element not found!"); }
+             else {
+                 resetBtn.addEventListener('click', function() {
+                     console.log("resetBtn: CLICKED");
+                     if (!isPlaced) { console.log("resetBtn: Nothing to reset."); return; }
+                     if (messageObject && messageObject.element) { messageObject.visible = false; messageObject.element.style.display = 'none'; }
+                     if (responseObject && responseObject.element) { responseObject.visible = false; responseObject.element.style.display = 'none'; }
+                     resetBtn.style.display = 'none'; placeBtn.style.display = 'flex'; responseToggle.style.display = 'none'; responseForm.style.display = 'none'; instructions.style.display = 'block';
+                     removeFlowers();
+                     if (window.responseInterval) clearInterval(window.responseInterval);
+                     isPlaced = false; console.log('resetBtn: Garden RESET.');
+                 });
+             }
+
+             if (!responseToggle) { console.error("CRITICAL ERROR: responseToggle element not found!"); }
+             else {
+                 responseToggle.addEventListener('click', function() {
+                     console.log("responseToggle: CLICKED");
+                     const isFormVisible = responseForm.style.display === 'block';
+                     responseForm.style.display = isFormVisible ? 'none' : 'block';
+                     responseToggle.textContent = isFormVisible ? '+' : '✕';
+                     console.log(`responseToggle: Form display set to ${responseForm.style.display}`);
+                 });
+            }
 
             // --- Response Loading and Form Submission Logic ---
-            function loadResponses() { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */ }
-            function showNextResponse() { /* ... (Keep as is) ... */ }
+            function loadResponses() {
+                  console.log('loadResponses: Called');
+                  window.responses = [ { name: "Visitor", message: "What if this space bloomed?" }, { name: "Gardener", message: "Imagine the possibilities..." } ];
+                  const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec?action=getResponses'; // <<< REPLACE YOUR_SCRIPT_ID_HERE
+                  fetch(scriptURL)
+                      .then(response => { if (!response.ok) throw new Error(`Net response NOT OK: ${response.statusText}`); return response.json(); })
+                      .then(data => { if (data.result === 'success' && data.responses && data.responses.length > 0) { window.responses = data.responses; console.log(`loadResponses: Loaded ${window.responses.length} responses.`); } else if (data.result === 'error') { throw new Error(`Script error: ${data.message}`); } else { console.log("loadResponses: No new responses or unexpected format. Using defaults."); } })
+                      .catch(error => { console.error('loadResponses: ERROR:', error); console.log("loadResponses: Using default responses due to error."); })
+                      .finally(() => { if (responseObject && responseObject.element) { showNextResponse(); if (window.responseInterval) clearInterval(window.responseInterval); window.responseInterval = setInterval(showNextResponse, 8000); console.log('loadResponses: Response cycling started/restarted.'); } else { console.warn('loadResponses: Response element not ready, cannot start cycling.'); } });
+            }
+            window.currentResponseIndex = -1;
+            function showNextResponse() {
+                 if (!responseObject || !responseObject.element) { console.warn("showNextResponse: responseObject or element not ready."); return; }
+                 if (!window.responses || window.responses.length === 0) { responseObject.element.textContent = "Share your thoughts using '+'"; return; }
+                 let newIndex; do { newIndex = Math.floor(Math.random() * window.responses.length); } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
+                 window.currentResponseIndex = newIndex; const response = window.responses[window.currentResponseIndex]; const displayText = `"${response.message}" - ${response.name}`;
+                 console.log(`showNextResponse: Displaying: ${displayText}. ResponseObj visible: ${responseObject.visible}, display: ${responseObject.element.style.display}, opacity: ${responseObject.element.style.opacity}`);
+                 responseObject.element.style.transition = 'opacity 0.6s ease-in-out'; responseObject.element.style.opacity = 0;
+                 setTimeout(() => { responseObject.element.textContent = displayText; responseObject.element.style.opacity = 1; console.log(`showNextResponse: Faded in text. Opacity: ${responseObject.element.style.opacity}`); }, 600);
+            }
             const gardenForm = document.getElementById('garden-response-form');
-            if (!gardenForm) { /* ... */ } else { /* ... */ }
+            if (!gardenForm) { console.error("CRITICAL ERROR: garden-response-form element not found!"); }
+            else {
+                 gardenForm.addEventListener('submit', function(e) { /* ... (Keep form submission logic - remember YOUR_SCRIPT_ID) ... */ });
+            }
 
             // Hide loading screen
              if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
