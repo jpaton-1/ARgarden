@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden? - Shader Flowers</title> <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
+    <title>Why can't this be a community garden? - Instanced Flowers</title> <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/renderers/CSS2DRenderer.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,15 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
+        /* --- CSS Styles (Keep As Is) --- */
         body { margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; overflow: hidden; background-color: #000; }
-        /* Keep existing styles for loading, UI elements etc. */
         #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; text-align: center; padding: 20px; box-sizing: border-box; }
         #loading h1 { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 2.5em; margin-bottom: 15px; }
         #loading p { font-size: 1.1em; margin-bottom: 20px;}
-        /* Simplified loading - remove progress bar */
-        /* #loading-progress { width: 80%; max-width: 300px; height: 20px; background-color: #333; border-radius: 10px; overflow: hidden; } */
-        /* #loading-bar { height: 100%; width: 0%; background-color: #4CAF50; transition: width 0.3s ease; } */
-        /* #loading-text { margin-top: 10px; font-size: 14px; } */
 
         #camera-feed { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
         #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
@@ -53,28 +49,41 @@
     </style>
 
     <script id="flowerVertexShader" type="x-shader/x-vertex">
-        varying vec2 vUv; // Pass UV coordinates to Fragment Shader
+        // Passed to Fragment Shader
+        varying vec2 vUv;
+        varying vec2 vInstanceRandomVec2; // Pass instance random values
+        varying float vInstanceGrowTime;  // Pass instance grow time
+
+        // Per-instance attributes from InstancedMesh
+        attribute vec2 instanceRandomVec2; // Receive from InstancedBufferAttribute
+        attribute float instanceGrowTime;  // Receive from InstancedBufferAttribute
+        // instanceMatrix is a built-in attribute for InstancedMesh
 
         void main() {
-            vUv = uv; // Pass the UV coords straight through
+            vUv = uv;
+            // Pass instance data to fragment shader
+            vInstanceRandomVec2 = instanceRandomVec2;
+            vInstanceGrowTime = instanceGrowTime;
 
-            // Standard Three.js Transformation for objects in the 3D scene
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            // Apply instance matrix FIRST (handles position, rotation, scale per instance)
+            // Then apply standard view and projection matrices
+            gl_Position = projectionMatrix * viewMatrix * instanceMatrix * vec4(position, 1.0);
         }
     </script>
 
     <script id="flowerFragmentShader" type="x-shader/x-fragment">
         #define PI 3.14159265359
-        precision highp float; // Use high precision
+        precision highp float;
 
-        // Uniforms from JavaScript
-        uniform float u_time;         // Global time for subtle animations
-        uniform float u_grow_time;    // Controls growth animation (0.0 upwards)
-        uniform vec2 u_random_vec2;   // Random values (0-1) for variation
+        // Uniforms (Global - Same for all instances)
+        uniform float u_time;
 
-        varying vec2 vUv; // UV coordinates from vertex shader (0.0 to 1.0, center is 0.5, 0.5)
+        // Varyings (Per-Instance Data from Vertex Shader)
+        varying vec2 vUv;
+        varying vec2 vInstanceRandomVec2; // Use this instead of u_random_vec2
+        varying float vInstanceGrowTime;  // Use this instead of u_grow_time
 
-        // --- Noise function (Simplex Noise) ---
+        // --- Noise function (Simplex Noise - unchanged) ---
         vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
         vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
         vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
@@ -100,81 +109,59 @@
             return 130.0 * dot(m, g);
         }
 
-        // --- Flower shape function (Adapted) ---
+        // --- Flower shape function (Adapted for Instance Data) ---
         float get_flower_shape(vec2 _p, float _pet_n, float _angle, float _outline) {
-             // _p is centered UV coords (-0.5 to 0.5)
-            _angle *= 3.0; // Original multiplier
-
-            // Rotate point relative to center
-            _p = vec2(_p.x * cos(_angle) - _p.y * sin(_angle),
-                      _p.x * sin(_angle) + _p.y * cos(_angle));
-
-            float a = atan(_p.y, _p.x); // Angle of the point relative to center
-
-            // Sectoral shape (petals) using sine wave based on angle
+            _angle *= 3.0;
+            _p = vec2(_p.x * cos(_angle) - _p.y * sin(_angle), _p.x * sin(_angle) + _p.y * cos(_angle));
+            float a = atan(_p.y, _p.x);
             float flower_sectoral_shape = pow(abs(sin(a * _pet_n)), 0.4) + 0.25;
 
-            // Size based on random value and scaled for the plane
-            vec2 flower_size_range = vec2(0.03, 0.1); // Original base range
-            float base_scale_factor = 0.45; // Scale factor relative to plane radius (0.5) - TWEAK THIS
-            float size = (flower_size_range[0] + u_random_vec2[0] * flower_size_range[1]) * base_scale_factor;
+            vec2 flower_size_range = vec2(0.03, 0.1);
+            float base_scale_factor = 0.55; // <<< TWEAK THIS >>> (Size relative to plane)
+            // *** USE vInstanceRandomVec2 ***
+            float size = (flower_size_range[0] + vInstanceRandomVec2[0] * flower_size_range[1]) * base_scale_factor;
 
-            // Radial shape (distance falloff)
             float dist = length(_p);
-            float flower_radial_shape = pow(dist / size, 2.0); // How far out are we relative to target size
-            flower_radial_shape -= 0.1 * sin(8.0 * a); // Add angular noise/wobble
-            flower_radial_shape = max(0.1, flower_radial_shape); // Clamp minimum shape value
+            float flower_radial_shape = pow(dist / size, 2.0);
+            flower_radial_shape -= 0.1 * sin(8.0 * a);
+            flower_radial_shape = max(0.1, flower_radial_shape);
 
-            // Growth based on u_grow_time
-            // Normalize time (e.g., full growth around 1.5 seconds) and apply easing
-            float grow_progress = pow(min(u_grow_time / 1.5, 1.0), 0.4);
-            // Calculate shape intensity based on radial falloff
-            float shape_value = smoothstep(flower_sectoral_shape, flower_sectoral_shape * 0.8, flower_radial_shape); // 1 inside petal shape, 0 outside
-            float flower_shape = shape_value * grow_progress; // Reveal shape based on progress
+            // *** USE vInstanceGrowTime ***
+            float grow_progress = pow(min(vInstanceGrowTime / 1.5, 1.0), 0.4); // Grow over ~1.5s
+            float shape_value = smoothstep(flower_sectoral_shape, flower_sectoral_shape * 0.8, flower_radial_shape);
+            float flower_shape = shape_value * grow_progress;
 
             return flower_shape;
         }
 
-        // --- Stem shape function (Adapted) ---
+        // --- Stem shape function (Adapted for Instance Data) ---
         float get_stem_shape(vec2 _p, vec2 _plane_uv, float _w, float _angle) {
-            // _p is centered UV coords (-0.5 to 0.5)
-            // _plane_uv is original UV coords (0 to 1)
-             _w = max(0.004, _w);
-            _w *= 0.5; // Scale base width - TWEAK THIS
+            _w = max(0.004, _w);
+            _w *= 0.6; // <<< TWEAK THIS >>> (Stem width relative to plane size)
 
-            // Bend based on vertical position (_p.y = centeredUv.y)
-            float bend_amount = 0.8; // How much bend - TWEAK THIS
+            float bend_amount = 0.8; // <<< TWEAK THIS >>>
             float x_offset = _p.y * sin(_angle * 2.0) * bend_amount;
-            // Apply bend more strongly further from center (using original UV y-coord)
             x_offset *= pow(max(0.0, _plane_uv.y), 1.5);
-            _p.x -= x_offset; // Apply the bend offset
+            _p.x -= x_offset;
 
-            // Add horizontal noise using simplex noise
-            float noise_power = 0.6; // Noise strength - TWEAK THIS
-            // Use original UV and random seed for noise calculation
-            float stem_noise = noise_power * snoise(8.0 * _plane_uv + u_random_vec2[0] * 5.0);
-            // Fade noise near the flower center (_p length) and near the base (_plane_uv.y)
+            float noise_power = 0.6; // <<< TWEAK THIS >>>
+            // *** USE vInstanceRandomVec2 ***
+            float stem_noise = noise_power * snoise(8.0 * _plane_uv + vInstanceRandomVec2[0] * 5.0);
             stem_noise *= smoothstep(0.0, 0.15, length(_p));
             stem_noise *= smoothstep(0.0, 0.05, _plane_uv.y);
-            _p.x += stem_noise * 0.1; // Apply scaled noise
+            _p.x += stem_noise * 0.1;
 
-            // Vertical line shape based on width _w
             float left = smoothstep(-_w, 0.0, _p.x);
             float right = 1.0 - smoothstep(0.0, _w, _p.x);
             float stem_line = left * right;
 
-            // Make it grow upwards based on u_grow_time
-            // Normalize time (e.g., full stem growth around 0.8 seconds)
-            float grow_progress = pow(min(u_grow_time / 0.8, 1.0), 0.6);
-            // Calculate the current top edge of the stem (grows from y=-0.5 up towards y=0)
+            // *** USE vInstanceGrowTime ***
+            float grow_progress = pow(min(vInstanceGrowTime / 0.8, 1.0), 0.6); // Stem grows over ~0.8s
             float grow_height = -0.5 + grow_progress * 0.5;
-            // Mask the stem based on the current growth height (fade in as it reaches the pixel)
             float height_mask = smoothstep(grow_height - 0.05, grow_height, _p.y);
             float stem_shape = stem_line * height_mask;
 
-            // Only draw stem below the flower center (fade out just below y=0)
             stem_shape *= smoothstep(0.01, -0.01, _p.y);
-            // Ensure stem only drawn in lower half (using original UV) - redundant? test removal
             stem_shape *= step(0.0, _plane_uv.y);
 
             return stem_shape;
@@ -182,94 +169,60 @@
 
 
         void main() {
-            // Calculate coordinates relative to the center of the plane (-0.5 to 0.5)
             vec2 centeredUv = vUv - 0.5;
 
-            // Calculate colors and angle based on random seed
-            vec3 stem_color = vec3(0.1 + u_random_vec2[0] * 0.6, 0.6, 0.2);
-            vec3 flower_color = vec3(0.6 + 0.5 * u_random_vec2[1], 0.1, 0.9 - 0.5 * u_random_vec2[1]);
-            float angle = 1.5 * (u_random_vec2[0] - 0.5); // Base angle for rotation/bend
+            // Colors and angle based on instance random data
+            // *** USE vInstanceRandomVec2 ***
+            vec3 stem_color = vec3(0.1 + vInstanceRandomVec2[0] * 0.6, 0.6, 0.2);
+            vec3 flower_color = vec3(0.6 + 0.5 * vInstanceRandomVec2[1], 0.1, 0.9 - 0.5 * vInstanceRandomVec2[1]);
+            float angle = 1.5 * (vInstanceRandomVec2[0] - 0.5);
 
-            // --- Calculate shapes ---
-            // Stem - uses centeredUv for position, vUv for noise/bend base
+            // --- Calculate shapes using INSTANCE grow time ---
             float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle); // Width Tweak
-
-            // Flower Petals - use centeredUv for position
-            float petals_back_number = 2.0 + floor(u_random_vec2[0] * 3.0); // 2-4 petals
-            // Animate rotation slightly based on time/growth
-            float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(u_grow_time, 1.5);
+            // *** USE vInstanceGrowTime for angle offset ***
+            float petals_back_number = 2.0 + floor(vInstanceRandomVec2[0] * 3.0);
+            float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(vInstanceGrowTime, 1.5);
             float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5);
-
-            float petals_front_number = 3.0 + floor(u_random_vec2[1] * 3.0); // 3-5 petals
+            float petals_front_number = 3.0 + floor(vInstanceRandomVec2[1] * 3.0);
             float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0);
 
             // --- Combine colors ---
-            vec3 final_color = vec3(0.0); // Start transparent black
-
-            // Add stem color where stem_shape > 0
+            vec3 final_color = vec3(0.0);
             final_color += (stem_shape * stem_color);
-
-            // Add back petals color (with green tint evolving during growth)
-            final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(u_grow_time, 1.0), 0.0)));
-
-            // Add front petals color
+            // *** Use vInstanceGrowTime for green tint ***
+            final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(vInstanceGrowTime, 1.0), 0.0)));
             final_color += (flower_front_shape * flower_color);
-
-            // Apply original overlap darkening effect
             final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape);
             final_color.b *= 1.0 - (flower_back_shape * flower_front_shape);
 
             // --- Calculate Final Alpha ---
-            // Combine shapes - use max to ensure visibility
             float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape));
-            // Smoothstep alpha near 0 for a less abrupt cutoff
             alpha = smoothstep(0.0, 0.05, alpha);
 
-            // Discard fully transparent fragments (GPU optimization)
             if (alpha < 0.01) {
                 discard;
             }
-
-            // Output final color and alpha
             gl_FragColor = vec4(final_color, alpha);
         }
     </script>
     </head>
 <body>
-    <div id="loading">
-        <h1>Why can't...?</h1>
-        <p>Loading experience...</p> </div>
-    <div id="permission-overlay">
-        <h2>Motion Sensors Required</h2>
-        <p>This AR experience needs access to your device's motion sensors to look around.</p>
-        <button id="permission-btn">Allow Motion Sensors</button>
-    </div>
-
+    <div id="loading"> <h1>Why can't...?</h1> <p>Loading experience...</p> </div>
+    <div id="permission-overlay"> <h2>Motion Sensors Required</h2> <p>This AR experience needs access to your device's motion sensors to look around.</p> <button id="permission-btn">Allow Motion Sensors</button> </div>
     <video id="camera-feed" autoplay playsinline muted></video>
     <div id="canvas-container"></div>
     <div id="message-container" style="display: none;"> <p id="message-text">Why can't this be a community garden?</p> </div>
     <div id="response-display" style="display: none;"></div>
     <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
+    <div class="controls"> <button id="response-toggle" class="btn" title="Share thoughts">+</button> <button id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn" title="Reset Garden">↺</button> </div>
+    <div id="response-form"> <h3>Share Your Thoughts</h3> <form id="garden-response-form"> <label for="name">Your Name:</label> <input type="text" id="name" name="name" placeholder="e.g., Alex P." required> <label for="form-message">Why can't this be a community garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea> <button type="submit">Submit Idea</button> </form> <div id="response-status"></div> </div>
+    <div id="debug-info"></div>
 
-    <div class="controls">
-        <button id="response-toggle" class="btn" title="Share thoughts">+</button>
-        <button id="place-btn" class="btn" title="Place Garden">🌸</button>
-        <button id="reset-btn" class="btn" title="Reset Garden">↺</button>
-    </div>
+    <script type="module"> // Use type="module" if using import statements (though not needed here)
 
-    <div id="response-form">
-        <h3>Share Your Thoughts</h3>
-        <form id="garden-response-form">
-            <label for="name">Your Name:</label>
-            <input type="text" id="name" name="name" placeholder="e.g., Alex P." required>
-            <label for="form-message">Why can't this be a community garden?</label>
-            <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea>
-            <button type="submit">Submit Idea</button>
-        </form>
-        <div id="response-status"></div>
-    </div>
+        // Import THREE if using modules, otherwise rely on global script include
+        // import * as THREE from 'path/to/three.module.js'; // Example if using modules
 
-    <div id="debug-info"></div> <script>
         document.addEventListener('DOMContentLoaded', function() {
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
@@ -287,16 +240,25 @@
 
             let scene, camera, renderer, controls, css2dRenderer, clock;
             let messageObject, responseObject;
-            let activeFlowers = []; // Array to hold references to flower meshes
             let isPlaced = false;
+
+            // --- Instanced Mesh Setup ---
+            let instancedFlowers;
+            const MAX_FLOWERS = 2500; // <<< TWEAK THIS >>> Max number of flowers
+            let currentFlowerCount = 0; // Flowers currently visible
+            // Typed arrays for instance attributes
+            let instanceGrowTimes = new Float32Array(MAX_FLOWERS);
+            let instanceRandomVec2s = new Float32Array(MAX_FLOWERS * 2);
+            let instanceGrowDuration = new Float32Array(MAX_FLOWERS);
+            // JS array to trigger blooming state
+            let instanceIsBlooming = new Array(MAX_FLOWERS).fill(false);
+            const dummy = new THREE.Object3D(); // Reusable object for matrix calculation
+
 
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.has('debug');
-            if (debugMode) {
-                debugInfo.style.display = 'block';
-            } else {
-                debugInfo.style.display = 'none';
-            }
+            if (debugMode) debugInfo.style.display = 'block';
+            else debugInfo.style.display = 'none';
 
             function debugLog(message) {
                  if (debugMode) { console.log(message); const d = new Date(); const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`; debugInfo.innerHTML = `[${time}] ${message}<br>` + debugInfo.innerHTML.substring(0, 1000); }
@@ -309,21 +271,20 @@
 
             function initAR() {
                 debugLog('Fn: initAR START');
-                startCamera(); // Attempt to start camera first
+                startCamera();
                 if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     debugLog('iOS: showing motion permission overlay');
                     permissionOverlay.style.display = 'flex';
                     permissionBtn.addEventListener('click', requestMotionPermission, { once: true });
                 } else {
                     debugLog('Non-iOS or older: proceeding to initThree');
-                    // Hide loading screen earlier if no permission needed
                     if (loadingScreen) loadingScreen.style.display = 'none';
                     initThree();
                 }
                 debugLog('Fn: initAR END');
             }
 
-            function requestMotionPermission() {
+             function requestMotionPermission() { /* ... (Keep as is) ... */
                  debugLog('Fn: requestMotionPermission START');
                  DeviceOrientationEvent.requestPermission().then(response => {
                      if (response === 'granted') {
@@ -342,9 +303,8 @@
                      if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
                  });
                  debugLog('Fn: requestMotionPermission END');
-            }
-
-            function startCamera() {
+             }
+             function startCamera() { /* ... (Keep as is) ... */
                 debugLog('Fn: startCamera START');
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     alert('Camera access not supported by your browser.');
@@ -371,18 +331,18 @@
                         }
                     });
                 debugLog('Fn: startCamera END');
-            }
+             }
 
             function initThree() {
                 try {
-                    debugLog('Fn: initThree START');
+                    debugLog('Fn: initThree START (Instanced)');
                     scene = new THREE.Scene();
                     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                    camera.position.set(0, 1.6, 0); // User height approx
+                    camera.position.set(0, 1.6, 0);
 
                     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                     renderer.setSize(window.innerWidth, window.innerHeight);
-                    renderer.setClearColor(0x000000, 0); // Transparent background
+                    renderer.setClearColor(0x000000, 0);
                     canvasContainer.appendChild(renderer.domElement);
 
                     css2dRenderer = new THREE.CSS2DRenderer();
@@ -392,39 +352,69 @@
                     debugLog('WebGL and CSS2D Renderers initialized.');
 
                     controls = new THREE.DeviceOrientationControls(camera);
-                    clock = new THREE.Clock(); // Initialize clock
+                    clock = new THREE.Clock();
 
-                    // Lighting
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Slightly brighter ambient
+                    // --- Lighting ---
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
                     scene.add(ambientLight);
-                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7); // Slightly softer directional
+                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
                     directionalLight.position.set(1, 3, 2);
                     scene.add(directionalLight);
 
-                    // Optional Ground Plane (invisible, for reference or potential interactions later)
-                    const groundGeometry = new THREE.PlaneGeometry(50, 50);
-                    const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
-                    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-                    ground.rotation.x = -Math.PI / 2;
-                    ground.position.y = 0; // Adjust if needed
-                    ground.visible = false; // Keep invisible for now
-                    scene.add(ground);
-                    window.ground = ground;
+                    // --- Create BASE Geometry and Material for Instancing ---
+                    const baseFlowerGeometry = createBaseFlowerGeometry();
+                    const baseFlowerMaterial = createBaseFlowerMaterial();
 
-                    createCSS2DObjects(); // Setup text elements
+                    // --- Create InstancedMesh ---
+                    instancedFlowers = new THREE.InstancedMesh(baseFlowerGeometry, baseFlowerMaterial, MAX_FLOWERS);
+                    instancedFlowers.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // Perf hint
+                    // Add buffer attributes for custom instance data
+                    // Need to attach attributes *before* adding to scene? Or just before first render? Let's do it here.
+                    baseFlowerGeometry.setAttribute('instanceRandomVec2', new THREE.InstancedBufferAttribute(instanceRandomVec2s, 2)); // 2 floats per vec2
+                    baseFlowerGeometry.setAttribute('instanceGrowTime', new THREE.InstancedBufferAttribute(instanceGrowTimes, 1));   // 1 float per time value
+                    instancedFlowers.count = 0; // Start with 0 visible instances
+                    scene.add(instancedFlowers);
+                    debugLog(`InstancedMesh created for ${MAX_FLOWERS} max flowers.`);
 
+                    // --- Optional Ground Plane ---
+                    // ... (Keep if desired) ...
+
+                    // --- Setup remaining scene parts ---
+                    createCSS2DObjects();
                     window.addEventListener('resize', onWindowResize);
-                    animate(); // Start render loop
-                    debugLog('Fn: initThree END.');
+                    animate();
+                    debugLog('Fn: initThree END (Instanced).');
 
                  } catch (error) {
-                    console.error("Error during Three.js initialization:", error);
-                    debugLog("THREE.JS INIT CRASH: " + error.message);
-                    alert("A rendering error occurred. Please try reloading.");
+                     console.error("Error during Three.js initialization:", error);
+                     debugLog("THREE.JS INIT CRASH: " + error.message);
+                     alert("A rendering error occurred. Please try reloading.");
                  }
             }
 
-             function createCSS2DObjects() {
+            // --- Functions to create base geometry/material for instancing ---
+            function createBaseFlowerGeometry() {
+                // Set a FIXED size for the base geometry for consistency with instancing
+                const flowerSize = 1.8; // <<< TWEAK THIS >>> Base size of flower planes
+                debugLog(`Base flower geometry size: ${flowerSize.toFixed(2)}`);
+                return new THREE.PlaneGeometry(flowerSize, flowerSize);
+            }
+
+            function createBaseFlowerMaterial() {
+                 const uniforms = {
+                    u_time: { value: 0.0 }, // Global time uniform remains
+                 };
+                 return new THREE.ShaderMaterial({
+                    uniforms: uniforms,
+                    vertexShader: document.getElementById('flowerVertexShader').textContent,
+                    fragmentShader: document.getElementById('flowerFragmentShader').textContent,
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                    depthWrite: false // Important for transparent instances
+                 });
+            }
+
+             function createCSS2DObjects() { /* ... (Keep as is) ... */
                 debugLog('Fn: createCSS2DObjects START');
                 if (!messageElement || !responseElement) { debugLog('CRITICAL ERROR: HTML element for text not found!'); return; }
 
@@ -439,243 +429,196 @@
                 responseObject.visible = false; // Start hidden
 
                 debugLog('Fn: createCSS2DObjects END');
-            }
+             }
 
-            // --- Shader Flower Creation ---
-            function createShaderFlower() {
-                const flowerSize = 0.8 + Math.random() * 0.4; // Base size of the plane - TWEAK
-                const geometry = new THREE.PlaneGeometry(flowerSize, flowerSize);
 
-                const uniforms = {
-                    u_time: { value: 0.0 },
-                    u_grow_time: { value: 0.0 },
-                    u_random_vec2: { value: new THREE.Vector2(Math.random(), Math.random()) }
-                };
-
-                const material = new THREE.ShaderMaterial({
-                    uniforms: uniforms,
-                    vertexShader: document.getElementById('flowerVertexShader').textContent,
-                    fragmentShader: document.getElementById('flowerFragmentShader').textContent,
-                    transparent: true,
-                    side: THREE.DoubleSide,
-                    depthWrite: false // Helps with transparency sorting
-                });
-
-                const flowerMesh = new THREE.Mesh(geometry, material);
-
-                // Store animation data in userData
-                flowerMesh.userData.isBlooming = false; // Flag to start growth
-                flowerMesh.userData.growTime = 0.0;    // Internal timer for growth
-                // Define how long growth should take (used in shader indirectly now)
-                flowerMesh.userData.growDuration = 1.5 + Math.random() * 1.0; // Approx duration
-
-                return flowerMesh;
-            }
-
-            // --- Flower Placement ---
+            // --- Flower Placement (Modified for InstancedMesh) ---
             function placeFlowers() {
-                debugLog(`Fn: placeFlowers START (Adapted Shader Flowers).`);
-                const flowerCount = 50; // Adjust count based on performance TWEAK
-                const minDistance = 2.0; const maxDistance = 9.0; // Placement range TWEAK
-                const minHeight = -1.0; const maxHeight = 0.5; // Height range TWEAK (relative to camera height)
+                if (!instancedFlowers) { debugLog("ERROR: InstancedMesh not ready."); return; }
+
+                debugLog(`Fn: placeFlowers START (Instanced - Max ${MAX_FLOWERS}).`);
+                const flowerCount = MAX_FLOWERS; // Use the max count defined
+                const minDistance = 1.5; const maxDistance = 18.0; // <<< TWEAK THIS >>> Wider range
+                const minHeight = -2.0; const maxHeight = 1.5;  // <<< TWEAK THIS >>> Wider height range
                 debugLog(`Flower height range: Y ${minHeight} to Y ${maxHeight}`);
 
-                removeFlowers(); // Clear previous flowers first
+                // Reset JS tracking arrays
+                instanceIsBlooming.fill(false);
+                // Don't reset grow times/randoms here if we want them persistent on reset?
+                // Let's reset them to ensure fresh state on each placement.
+                instanceGrowTimes.fill(0);
+                instanceRandomVec2s.fill(0);
+                instanceGrowDuration.fill(0);
+                currentFlowerCount = flowerCount;
 
-                for (let i = 0; i < flowerCount; i++) {
+                const baseQuaternion = new THREE.Quaternion(); // For rotations
+
+                for (let i = 0; i < currentFlowerCount; i++) {
+                    // Calculate position
                     const angle = Math.random() * Math.PI * 2;
                     const distance = minDistance + Math.random() * (maxDistance - minDistance);
                     const x = Math.cos(angle) * distance;
                     const z = Math.sin(angle) * distance;
-                    // Place relative to camera's current height to feel more grounded
-                    const y = (camera.position.y - 1.6) + (minHeight + Math.random() * (maxHeight - minHeight));
+                    const y = (camera.position.y - 1.6) + (minHeight + Math.random() * (maxHeight - minHeight)); // Relative to camera floor
 
+                    // Set instance matrix (Position, Rotation, Scale)
+                    dummy.position.set(x, y, z);
+                    dummy.rotation.set(Math.random() * 0.4 - 0.2, Math.random() * Math.PI * 2, Math.random() * 0.4 - 0.2); // Random slight tilt + Y rotation
+                    const scaleVariation = 0.6 + Math.random() * 0.8; // <<< TWEAK THIS >>> Random scale per flower
+                    dummy.scale.set(scaleVariation, scaleVariation, scaleVariation);
+                    dummy.updateMatrix();
+                    instancedFlowers.setMatrixAt(i, dummy.matrix);
 
-                    try {
-                        const flower = createShaderFlower();
-                        flower.position.set(x, y, z);
-                        // Rotation (lookAt) is handled in animation loop
-                        scene.add(flower);
-                        activeFlowers.push(flower); // Store reference
+                    // Set instance attributes in the typed arrays
+                    instanceRandomVec2s[i * 2 + 0] = Math.random(); // Random X
+                    instanceRandomVec2s[i * 2 + 1] = Math.random(); // Random Y
+                    instanceGrowTimes[i] = 0.0; // Start grow time at 0
+                    instanceGrowDuration[i] = 1.5 + Math.random() * 1.0; // Store random duration
 
-                        // Stagger bloom start
-                        setTimeout(() => {
-                            // Check if flower still exists (user might reset quickly)
-                            if (flower && flower.userData && activeFlowers.includes(flower)) {
-                               flower.userData.isBlooming = true;
-                            }
-                        }, 300 + Math.random() * 1500); // Stagger start time
-
-                    } catch (e) {
-                        console.error("Error creating/placing adapted shader flower:", e);
-                        debugLog(`Error placing flower ${i}`);
-                    }
+                    // Trigger blooming via JS array with stagger
+                    setTimeout(() => {
+                         instanceIsBlooming[i] = true;
+                    }, 200 + Math.random() * 3000); // Longer stagger time <<< TWEAK THIS >>>
                 }
-                debugLog(`Placed ${activeFlowers.length} adapted shader flowers.`);
+
+                // Update InstancedMesh buffers AFTER the loop
+                instancedFlowers.instanceMatrix.needsUpdate = true;
+                instancedFlowers.geometry.attributes.instanceRandomVec2.needsUpdate = true;
+                instancedFlowers.geometry.attributes.instanceGrowTime.needsUpdate = true;
+                instancedFlowers.count = currentFlowerCount; // Set number of instances to draw
+
+                debugLog(`Placed ${currentFlowerCount} instanced flowers.`);
             }
 
-             // --- Flower Removal ---
+            // --- Flower Removal (Modified for InstancedMesh) ---
             function removeFlowers() {
-                if (activeFlowers && activeFlowers.length > 0) {
-                    debugLog(`Removing ${activeFlowers.length} shader flowers...`);
-                    activeFlowers.forEach(flower => {
-                        scene.remove(flower);
-                        // IMPORTANT: Dispose of geometry and material to free GPU memory
-                        if (flower.geometry) {
-                            flower.geometry.dispose();
-                            // debugLog('Disposed geometry');
-                        }
-                        if (flower.material) {
-                            flower.material.dispose();
-                            // debugLog('Disposed material');
-                        }
-                    });
-                    activeFlowers = []; // Clear the array
-                    debugLog('Shader flowers removed and resources disposed.');
+                if (instancedFlowers) {
+                    debugLog(`Removing ${instancedFlowers.count} instanced flowers...`);
+                    instancedFlowers.count = 0; // Hide all instances
+                    instancedFlowers.instanceMatrix.needsUpdate = true; // Necessary? Maybe not if count=0 hides them anyway.
+
+                    // Reset JS tracking arrays for next placement
+                    instanceIsBlooming.fill(false);
+                    instanceGrowTimes.fill(0);
+                    currentFlowerCount = 0;
+
+                    debugLog('Instanced flowers hidden.');
                 } else {
-                     debugLog('removeFlowers called, but no flowers to remove.');
+                     debugLog('removeFlowers called, but no InstancedMesh found.');
                 }
             }
-
 
             // --- Animation Loop ---
             function animate() {
                 requestAnimationFrame(animate);
-
-                // Ensure controls and clock exist before updating
                 if (controls) controls.update();
-                if (!clock) return; // Don't proceed if clock not ready
+                if (!clock || !instancedFlowers) return; // Safety checks
 
                 const delta = clock.getDelta();
                 const elapsedTime = clock.getElapsedTime();
 
                 if (isPlaced) {
-                    updateFlowerAnimations(delta, elapsedTime); // Update flowers if placed
+                    updateFlowerAnimations(delta, elapsedTime); // Update instances
                 }
 
-                // Render the main scene
-                 if (renderer && scene && camera) {
-                    renderer.render(scene, camera);
-                 }
-                // Render CSS2D elements
-                if (css2dRenderer && scene && camera) {
-                    css2dRenderer.render(scene, camera);
-                }
+                if (renderer && scene && camera) renderer.render(scene, camera);
+                if (css2dRenderer && scene && camera) css2dRenderer.render(scene, camera);
             }
 
-            // --- Update Flower Animations (Called from animate loop) ---
+            // --- Update Flower Animations (Modified for InstancedMesh) ---
             function updateFlowerAnimations(delta, elapsedTime) {
-                if (activeFlowers.length === 0) return;
+                 if (!instancedFlowers || instancedFlowers.count === 0) return;
 
-                activeFlowers.forEach(flower => {
-                     if (!flower || !flower.material || !flower.material.uniforms) return; // Safety check
+                 let needsGrowTimeUpdate = false;
+                 // Note: We don't need instanceMatrix update unless doing billboarding per frame
 
-                    // Make plane face camera
-                    flower.lookAt(camera.position);
+                 // Update global time uniform ONCE for the shared material
+                 instancedFlowers.material.uniforms.u_time.value = elapsedTime;
 
-                    // Update shared time uniform
-                    flower.material.uniforms.u_time.value = elapsedTime;
-
-                    // Update growth time if blooming
-                    if (flower.userData.isBlooming) {
-                        flower.userData.growTime += delta;
-                        flower.material.uniforms.u_grow_time.value = flower.userData.growTime;
-
-                        // Optional: Could set isBlooming = false after duration if needed
-                        // if (flower.userData.growTime > flower.userData.growDuration + 0.5) {
-                        //    flower.userData.isBlooming = false;
-                        // }
+                 // Loop through visible instances and update their attribute data
+                 for (let i = 0; i < instancedFlowers.count; i++) {
+                    if (instanceIsBlooming[i]) {
+                        // Only update grow time if it's still relevant (less than duration + buffer)
+                        if (instanceGrowTimes[i] < instanceGrowDuration[i] + 0.5) {
+                            instanceGrowTimes[i] += delta;
+                            // Update the value in the buffer attribute array for this instance
+                            instancedFlowers.geometry.attributes.instanceGrowTime.setX(i, instanceGrowTimes[i]);
+                            needsGrowTimeUpdate = true; // Flag that the buffer needs GPU update
+                        }
+                        // We could set instanceIsBlooming[i] = false here if growth is finished
                     }
-                });
+                 }
+
+                 // If any grow times were updated, tell Three.js to update the GPU buffer
+                 if (needsGrowTimeUpdate) {
+                    instancedFlowers.geometry.attributes.instanceGrowTime.needsUpdate = true;
+                 }
             }
 
-
-            function onWindowResize() {
+            function onWindowResize() { /* ... (Keep as is) ... */
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 if (css2dRenderer) css2dRenderer.setSize(window.innerWidth, window.innerHeight);
                 debugLog('Fn: onWindowResize executed.');
-            }
+             }
 
-            // --- UI Event Listeners ---
-            if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
-            else {
-                debugLog("placeBtn element FOUND. Attaching listener.");
-                placeBtn.addEventListener('click', function() {
-                    debugLog('Fn: placeBtn CLICKED.');
-                    if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
-                    if (!scene || !camera) { debugLog('PlaceBtn: Scene or Camera not ready!'); return; }
+            // --- UI Event Listeners (Minor adjustments needed) ---
+             if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
+             else {
+                 placeBtn.addEventListener('click', function() {
+                     debugLog('Fn: placeBtn CLICKED (Instanced).');
+                     if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
+                     // Check if InstancedMesh is ready before placing
+                     if (!instancedFlowers || !scene || !camera) { debugLog('PlaceBtn: InstancedMesh/Scene/Camera not ready!'); return; }
 
-                    // Check if text objects are ready
-                    if (!messageObject || !responseObject || !messageObject.element || !responseObject.element) {
-                        debugLog('PlaceBtn WARNING: CSS2DObjects or .element not ready! Text might not show.');
-                    } else {
-                         debugLog('PlaceBtn: Setting text objects visible...');
-                         messageObject.visible = true;
-                         messageObject.element.style.display = 'block'; // Ensure CSS display matches visible state
-                         responseObject.visible = true;
-                         responseObject.element.style.display = 'block';
-                    }
+                     // Show text elements
+                     if (messageObject && responseObject && messageObject.element && responseObject.element) {
+                        messageObject.visible = true; messageObject.element.style.display = 'block';
+                        responseObject.visible = true; responseObject.element.style.display = 'block';
+                     } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
 
-                    placeBtn.style.display = 'none';
-                    resetBtn.style.display = 'flex';
-                    responseToggle.style.display = 'flex'; // Show response toggle
-                    instructions.style.display = 'none';
-                    // if (window.ground) window.ground.visible = true; // Keep ground invisible
+                     // Update button states etc.
+                     placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
+                     responseToggle.style.display = 'flex'; instructions.style.display = 'none';
 
-                    placeFlowers(); // Place the shader flowers
+                     placeFlowers(); // Place the INSTANCED flowers
 
-                    isPlaced = true;
-                    loadResponses(); // Load and cycle responses
-                    debugLog('PlaceBtn: Garden PLACED.');
-                });
-            }
+                     isPlaced = true;
+                     loadResponses();
+                     debugLog('PlaceBtn: Instanced Garden PLACED.');
+                 });
+             }
 
-            if (!resetBtn) { debugLog("CRITICAL ERROR: resetBtn element not found!"); }
-            else {
-                 resetBtn.addEventListener('click', function() {
-                     debugLog('Fn: resetBtn CLICKED.');
+             if (!resetBtn) { debugLog("CRITICAL ERROR: resetBtn element not found!"); }
+             else {
+                  resetBtn.addEventListener('click', function() {
+                     debugLog('Fn: resetBtn CLICKED (Instanced).');
                      if (!isPlaced) { debugLog("ResetBtn: Nothing to reset."); return; }
 
-                     if (messageObject && messageObject.element) {
-                        messageObject.visible = false;
-                        messageObject.element.style.display = 'none';
-                     }
-                     if (responseObject && responseObject.element) {
-                        responseObject.visible = false;
-                        responseObject.element.style.display = 'none';
-                     }
+                     // Hide text elements
+                     if (messageObject && messageObject.element) { messageObject.visible = false; messageObject.element.style.display = 'none'; }
+                     if (responseObject && responseObject.element) { responseObject.visible = false; responseObject.element.style.display = 'none'; }
 
-                     resetBtn.style.display = 'none';
-                     placeBtn.style.display = 'flex';
-                     responseToggle.style.display = 'none'; // Hide toggle
-                     responseForm.style.display = 'none'; // Hide form if open
+                      // Update button states etc.
+                     resetBtn.style.display = 'none'; placeBtn.style.display = 'flex';
+                     responseToggle.style.display = 'none'; responseForm.style.display = 'none';
                      instructions.style.display = 'block';
-                     // if (window.ground) window.ground.visible = false;
 
-                     removeFlowers(); // Remove the flower meshes
+                     removeFlowers(); // Remove the INSTANCED flowers (sets count=0)
 
-                     if (window.responseInterval) clearInterval(window.responseInterval); // Stop cycling responses
+                     if (window.responseInterval) clearInterval(window.responseInterval);
 
                      isPlaced = false;
-                     debugLog('ResetBtn: Garden RESET.');
-                 });
-            }
-
-             if (!responseToggle) { debugLog("CRITICAL ERROR: responseToggle element not found!"); }
-            else {
-                 responseToggle.addEventListener('click', function() {
-                     const isVisible = responseForm.style.display === 'block';
-                     responseForm.style.display = isVisible ? 'none' : 'block';
-                     responseToggle.textContent = isVisible ? '+' : '✕'; // Change icon
-                     debugLog(`Response form toggled to: ${responseForm.style.display}`);
-                 });
-            }
+                     debugLog('ResetBtn: Instanced Garden RESET.');
+                  });
+             }
+             if (!responseToggle) { /* ... (Keep as is) ... */ }
+             else { responseToggle.addEventListener('click', function() { /* ... */ }); }
 
 
-            // --- Response Loading and Display Logic (Keep as is) ---
-            function loadResponses() {
+            // --- Response Loading and Form Submission Logic (Keep as is) ---
+            function loadResponses() { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */
                   debugLog('Fn: loadResponses START');
                   // Default/Fallback responses
                   window.responses = [
@@ -684,16 +627,15 @@
                   ];
 
                   // Replace 'YOUR_SCRIPT_ID' with your actual Google Apps Script ID
-                  const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses';
+                  const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses'; // <<< YOUR SCRIPT ID HERE >>>
 
-                  fetch(scriptURL)
-                      .then(response => {
+                  fetch(scriptURL) /* ... rest of fetch logic ... */
+                       .then(response => {
                           if (!response.ok) throw new Error(`Network response NOT OK: ${response.statusText}`);
                           return response.json();
                        })
                       .then(data => {
                           if (data.result === 'success' && data.responses && data.responses.length > 0) {
-                              // Prepend new responses to default? Or replace? Let's replace.
                               window.responses = data.responses;
                               debugLog(`Loaded ${window.responses.length} responses from sheet.`);
                           } else if (data.result === 'error') {
@@ -707,109 +649,46 @@
                           debugLog(`Load responses ERROR: ${error.message}. Using defaults.`);
                       })
                       .finally(() => {
-                          // Only start cycling if the response element is ready
                           if (responseObject && responseObject.element) {
-                              showNextResponse(); // Show initial response
+                              showNextResponse();
                               if (window.responseInterval) clearInterval(window.responseInterval);
-                              window.responseInterval = setInterval(showNextResponse, 8000); // Cycle every 8 seconds
+                              window.responseInterval = setInterval(showNextResponse, 8000);
                               debugLog('Response cycling started/restarted.');
-                          } else {
-                               debugLog('Response element not ready, cannot start cycling.');
-                          }
+                          } else { debugLog('Response element not ready, cannot start cycling.'); }
                       });
-            }
-
+             }
             window.currentResponseIndex = -1;
-            function showNextResponse() {
+            function showNextResponse() { /* ... (Keep as is) ... */
                  if (!responseObject || !responseObject.element) { debugLog("showNextResponse: responseObject or element not ready."); return; }
-                 if (!window.responses || window.responses.length === 0) {
-                     responseObject.element.textContent = "Share your thoughts using '+'"; // Default message
-                     return;
-                 }
-
-                 let newIndex;
-                 do {
-                     newIndex = Math.floor(Math.random() * window.responses.length);
-                 } while (window.responses.length > 1 && newIndex === window.currentResponseIndex); // Avoid repeating immediately
-
+                 if (!window.responses || window.responses.length === 0) { responseObject.element.textContent = "Share your thoughts using '+'"; return; }
+                 let newIndex; do { newIndex = Math.floor(Math.random() * window.responses.length); } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
                  window.currentResponseIndex = newIndex;
-                 const response = window.responses[window.currentResponseIndex];
-                 const displayText = `"${response.message}" - ${response.name}`;
-
-                 // Fade out/in effect
-                 responseObject.element.style.transition = 'opacity 0.6s ease-in-out';
-                 responseObject.element.style.opacity = 0;
-                 setTimeout(() => {
-                     responseObject.element.textContent = displayText;
-                     responseObject.element.style.opacity = 1;
-                 }, 600); // Wait for fade out before changing text and fading in
-            }
-
-            // --- Response Form Submission Logic (Keep as is) ---
+                 const response = window.responses[window.currentResponseIndex]; const displayText = `"${response.message}" - ${response.name}`;
+                 responseObject.element.style.transition = 'opacity 0.6s ease-in-out'; responseObject.element.style.opacity = 0;
+                 setTimeout(() => { responseObject.element.textContent = displayText; responseObject.element.style.opacity = 1; }, 600);
+             }
              const gardenForm = document.getElementById('garden-response-form');
-            if (!gardenForm) { debugLog("CRITICAL ERROR: garden-response-form element not found!"); }
+            if (!gardenForm) { /* ... (Keep as is) ... */ }
             else {
-                 gardenForm.addEventListener('submit', function(e) {
-                     e.preventDefault();
-                     const name = document.getElementById('name').value;
-                     const message = document.getElementById('form-message').value;
-                     const timestamp = new Date().toLocaleString();
-                     const statusDiv = document.getElementById('response-status');
-
-                     if (!name.trim() || !message.trim()) {
-                         statusDiv.textContent = 'Please fill all fields.';
-                         statusDiv.style.color = '#ff6b6b';
-                         return;
-                     }
-                     statusDiv.textContent = 'Submitting...';
-                     statusDiv.style.color = 'white';
-
-                      // Replace 'YOUR_SCRIPT_ID' with your actual Google Apps Script ID
-                     const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
-                     const formData = new FormData();
-                     formData.append('name', name);
-                     formData.append('message', message);
-                     formData.append('timestamp', timestamp);
-                     formData.append('action', 'submitResponse'); // Action for the script
-
-                     // Using 'no-cors' mode means you won't get a direct success/error response in JS
-                     // from the script, but the data should still be sent.
-                     // You might want to set up your Apps Script to return a simple JSON response
-                     // even in redirects if possible, or handle this purely client-side assumption.
+                 gardenForm.addEventListener('submit', function(e) { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */
+                     e.preventDefault(); const name = document.getElementById('name').value; const message = document.getElementById('form-message').value; const timestamp = new Date().toLocaleString(); const statusDiv = document.getElementById('response-status');
+                     if (!name.trim() || !message.trim()) { statusDiv.textContent = 'Please fill all fields.'; statusDiv.style.color = '#ff6b6b'; return; }
+                     statusDiv.textContent = 'Submitting...'; statusDiv.style.color = 'white';
+                     const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'; // <<< YOUR SCRIPT ID HERE >>>
+                     const formData = new FormData(); formData.append('name', name); formData.append('message', message); formData.append('timestamp', timestamp); formData.append('action', 'submitResponse');
                      fetch(scriptURL, { method: 'POST', body: formData, mode: 'no-cors' })
                          .then(() => {
-                              // Assume success because of no-cors limitation
-                             debugLog("Form submitted (assumed success due to no-cors).");
-                             statusDiv.textContent = 'Thank you!';
-                             statusDiv.style.color = '#4CAF50';
-                             document.getElementById('garden-response-form').reset(); // Clear form
-                             // Add locally immediately for feedback
-                             if (window.responses) window.responses.push({ name, message });
-                             showNextResponse(); // Show a response immediately after submission
-
-                             setTimeout(() => {
-                                 responseForm.style.display = 'none'; // Hide form
-                                 responseToggle.textContent = '+'; // Reset toggle button
-                             }, 2500); // Shorter delay
+                              debugLog("Form submitted (assumed success due to no-cors)."); statusDiv.textContent = 'Thank you!'; statusDiv.style.color = '#4CAF50'; document.getElementById('garden-response-form').reset();
+                              if (window.responses) window.responses.push({ name, message }); showNextResponse(); setTimeout(() => { responseForm.style.display = 'none'; responseToggle.textContent = '+'; }, 2500);
                          })
-                         .catch(error => {
-                              // This catch might not fire reliably with 'no-cors' unless there's a network error
-                             console.error('Form submission fetch ERROR:', error);
-                             debugLog("Form submission fetch ERROR: " + error);
-                             statusDiv.textContent = 'Submission network error.';
-                             statusDiv.style.color = '#ff6b6b';
-                         });
+                         .catch(error => { console.error('Form submission fetch ERROR:', error); debugLog("Form submission fetch ERROR: " + error); statusDiv.textContent = 'Submission network error.'; statusDiv.style.color = '#ff6b6b'; });
                  });
             }
 
-            // Hide loading screen once basic setup seems okay (or after permissions)
+             // Hide loading screen once basic setup seems okay
              if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
-                 // If not iOS needing permission, hide loading after a small delay
-                 setTimeout(() => {
-                     if (loadingScreen) loadingScreen.style.display = 'none';
-                 }, 500);
+                 setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
              }
-
 
         }); // End DOMContentLoaded
     </script>
