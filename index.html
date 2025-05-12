@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden? - Final Tweaks</title>
+    <title>Why can't this be a community garden?</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -33,7 +33,7 @@
             text-align: center;
             font-family: 'Gwendolyn', cursive;
             font-weight: 700;
-            font-size: 14vw; /* INCREASED SIZE */
+            font-size: 40vw; /* INCREASED SIZE */
             line-height: 1.1;
             pointer-events: auto;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7), 2px 2px 5px rgba(0,0,0,0.5);
@@ -90,7 +90,7 @@
 </head>
 <body>
     <div id="loading">
-        <h1>Community Garden AR</h1>
+        <h1>Why can't...?</h1>
         <p>Loading experience... Please wait</p>
         <div id="loading-progress"><div id="loading-bar"></div></div>
         <div id="loading-text">Loading: 0%</div>
@@ -166,7 +166,7 @@
                 debugLog(`Initial computed displays BEFORE creating CSS2DObject - Message: ${window.getComputedStyle(messageElement).display}, Response: ${window.getComputedStyle(responseElement).display}`);
 
                 messageObject = new THREE.CSS2DObject(messageElement);
-                messageObject.position.set(0, 1.8, -4.5); // Main text HIGHER (Y=1.8)
+                messageObject.position.set(0, 4, -4.5); // Main text HIGHER (Y=1.8)
                 debugLog(`messageObject position set to: X:${messageObject.position.x.toFixed(1)}, Y:${messageObject.position.y.toFixed(1)}, Z:${messageObject.position.z.toFixed(1)}`);
                 scene.add(messageObject);
                 messageObject.visible = false;
@@ -195,8 +195,8 @@
                  if (flowerModels.length === 0) { debugLog("No models to place flowers."); return; }
                  debugLog(`Fn: placeFlowers START with ${flowerModels.length} models.`);
                  const flowerCount = 120; const minDistance = 2.5; const maxDistance = 12;
-                 const minHeight = -1.6; // Flowers LOWER
-                 const maxHeight = -1.0; // Flowers LOWER
+                 const minHeight = -3; // Flowers LOWER
+                 const maxHeight = -2.6; // Flowers LOWER
                  debugLog(`Flower height range: Y ${minHeight} to Y ${maxHeight}`);
                  const newFlowerGroup = { flowers: [], startTime: Date.now() };
                  for (let i = 0; i < flowerCount; i++) { const flowerInfo = flowerModels[Math.floor(Math.random() * flowerModels.length)]; const angle = Math.random() * Math.PI * 2; const distance = minDistance + Math.random() * (maxDistance - minDistance); const x = Math.cos(angle) * distance; const z = Math.sin(angle) * distance; const y = minHeight + Math.random() * (maxHeight - minHeight); try { const flowerModel = flowerInfo.model.clone(); flowerModel.position.set(x,y,z); const scale = (0.3+Math.random()*0.5)*flowerInfo.scale; flowerModel.scale.set(scale,scale,scale); flowerModel.rotation.y = Math.random()*Math.PI*2; scene.add(flowerModel); newFlowerGroup.flowers.push({ model: flowerModel, swaySpeed:0.5+Math.random()*1.5, swayAmount:0.05+Math.random()*0.15, swayDirection:Math.random()>0.5?1:-1, bobSpeed:0.3+Math.random()*0.7, bobAmount:0.03+Math.random()*0.05, initialPosition:flowerModel.position.clone(), initialRotation:flowerModel.rotation.clone() }); } catch(e){ console.error("Error cloning/placing flower:", e); debugLog(`Error placing flower ${i}`); } }
