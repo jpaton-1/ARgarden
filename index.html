@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden? - Phased Growth Flowers</title>
+    <title>Why can't this be a community garden?</title>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/renderers/CSS2DRenderer.js"></script>
@@ -304,163 +305,23 @@
     </style>
 
     <script id="flowerVertexShader" type="x-shader/x-vertex">
-        // Passed to Fragment Shader
-        varying vec2 vUv;
-        varying vec2 vInstanceRandomVec2;
-        varying float vInstanceStemGrowTime;  // Passed stem time
-        varying float vInstanceFlowerGrowTime;// Passed flower time
-
-        // Per-instance attributes from InstancedMesh
-        attribute vec2 instanceRandomVec2;
-        attribute float instanceStemGrowTime;   // Received stem time
-        attribute float instanceFlowerGrowTime; // Received flower time
-        // instanceMatrix is built-in
-
+        varying vec2 vUv; varying vec2 vInstanceRandomVec2; varying float vInstanceStemGrowTime; varying float vInstanceFlowerGrowTime;
+        attribute vec2 instanceRandomVec2; attribute float instanceStemGrowTime; attribute float instanceFlowerGrowTime;
         void main() {
-            vUv = uv;
-            // Pass instance data to fragment shader
-            vInstanceRandomVec2 = instanceRandomVec2;
-            vInstanceStemGrowTime = instanceStemGrowTime;
-            vInstanceFlowerGrowTime = instanceFlowerGrowTime;
-
-            // Apply instance matrix FIRST, then view/projection matrices
+            vUv = uv; vInstanceRandomVec2 = instanceRandomVec2; vInstanceStemGrowTime = instanceStemGrowTime; vInstanceFlowerGrowTime = instanceFlowerGrowTime;
             gl_Position = projectionMatrix * viewMatrix * instanceMatrix * vec4(position, 1.0);
         }
     </script>
-
     <script id="flowerFragmentShader" type="x-shader/x-fragment">
         #define PI 3.14159265359
         precision highp float;
-
-        // Uniforms (Global)
         uniform float u_time;
-
-        // Varyings (Per-Instance Data from Vertex Shader)
-        varying vec2 vUv;
-        varying vec2 vInstanceRandomVec2;
-        varying float vInstanceStemGrowTime;   // Received stem time
-        varying float vInstanceFlowerGrowTime; // Received flower time
-
-        // --- Noise function (Simplex Noise - unchanged) ---
-        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-        float snoise(vec2 v) {
-            const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-            vec2 i = floor(v + dot(v, C.yy));
-            vec2 x0 = v - i + dot(i, C.xx);
-            vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-            vec4 x12 = x0.xyxy + C.xxzz;
-            x12.xy -= i1;
-            i = mod289(i);
-            vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-            vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
-            m = m*m; m = m*m;
-            vec3 x = 2.0 * fract(p * C.www) - 1.0;
-            vec3 h = abs(x) - 0.5;
-            vec3 ox = floor(x + 0.5);
-            vec3 a0 = x - ox;
-            m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
-            vec3 g;
-            g.x = a0.x * x0.x + h.x * x0.y;
-            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-            return 130.0 * dot(m, g);
-        }
-
-        // --- Flower shape function (Use Flower Time) ---
-        float get_flower_shape(vec2 _p, float _pet_n, float _angle, float _outline) {
-            _angle *= 3.0;
-            _p = vec2(_p.x * cos(_angle) - _p.y * sin(_angle), _p.x * sin(_angle) + _p.y * cos(_angle));
-            float a = atan(_p.y, _p.x);
-            float flower_sectoral_shape = pow(abs(sin(a * _pet_n)), 0.4) + 0.25;
-
-            vec2 flower_size_range = vec2(0.03, 0.1);
-            float base_scale_factor = 0.55; // Size relative to plane
-            // *** USE vInstanceRandomVec2 ***
-            float size = (flower_size_range[0] + vInstanceRandomVec2[0] * flower_size_range[1]) * base_scale_factor;
-
-            float dist = length(_p);
-            float flower_radial_shape = pow(dist / size, 2.0);
-            flower_radial_shape -= 0.1 * sin(8.0 * a);
-            flower_radial_shape = max(0.1, flower_radial_shape);
-
-            // *** USE vInstanceFlowerGrowTime ***
-            float grow_progress = pow(min(vInstanceFlowerGrowTime / 1.5, 1.0), 0.4); // Flower grows over ~1.5s
-            float shape_value = smoothstep(flower_sectoral_shape, flower_sectoral_shape * 0.8, flower_radial_shape);
-            float flower_shape = shape_value * grow_progress;
-
-            return flower_shape;
-        }
-
-        // --- Stem shape function (Use Stem Time) ---
-        float get_stem_shape(vec2 _p, vec2 _plane_uv, float _w, float _angle) {
-            _w = max(0.004, _w);
-            _w *= 0.6; // Stem width relative to plane size
-
-            float bend_amount = 0.8;
-            float x_offset = _p.y * sin(_angle * 2.0) * bend_amount;
-            x_offset *= pow(max(0.0, _plane_uv.y), 1.5);
-            _p.x -= x_offset;
-
-            float noise_power = 0.6;
-            // *** USE vInstanceRandomVec2 ***
-            float stem_noise = noise_power * snoise(8.0 * _plane_uv + vInstanceRandomVec2[0] * 5.0);
-            stem_noise *= smoothstep(0.0, 0.15, length(_p));
-            stem_noise *= smoothstep(0.0, 0.05, _plane_uv.y);
-            _p.x += stem_noise * 0.1;
-
-            float left = smoothstep(-_w, 0.0, _p.x);
-            float right = 1.0 - smoothstep(0.0, _w, _p.x);
-            float stem_line = left * right;
-
-            // *** USE vInstanceStemGrowTime ***
-            float grow_progress = pow(min(vInstanceStemGrowTime / 0.8, 1.0), 0.6); // Stem grows over ~0.8s
-            float grow_height = -0.5 + grow_progress * 0.5; // Grows from bottom (-0.5) up
-            float height_mask = smoothstep(grow_height - 0.05, grow_height, _p.y); // Use centered Y
-            float stem_shape = stem_line * height_mask;
-
-            stem_shape *= smoothstep(0.01, -0.01, _p.y); // Fade stem below flower center
-            stem_shape *= step(0.0, _plane_uv.y); // Ensure stem only in lower half based on original UV
-
-            return stem_shape;
-        }
-
-
-        void main() {
-            vec2 centeredUv = vUv - 0.5;
-            // *** Colors/Angle use vInstanceRandomVec2 ***
-            vec3 stem_color = vec3(0.1 + vInstanceRandomVec2[0] * 0.6, 0.6, 0.2);
-            vec3 flower_color = vec3(0.6 + 0.5 * vInstanceRandomVec2[1], 0.1, 0.9 - 0.5 * vInstanceRandomVec2[1]);
-            float angle = 1.5 * (vInstanceRandomVec2[0] - 0.5);
-
-            // --- Calculate shapes using respective INSTANCE grow times ---
-            float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle); // <<< USES vInstanceStemGrowTime internally
-
-            // *** Use vInstanceFlowerGrowTime for angle offset and green tint ***
-            float petals_back_number = 2.0 + floor(vInstanceRandomVec2[0] * 3.0);
-            float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(vInstanceFlowerGrowTime, 1.5); // Use flower time
-            float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5); // <<< USES vInstanceFlowerGrowTime internally
-
-            float petals_front_number = 3.0 + floor(vInstanceRandomVec2[1] * 3.0);
-            float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0); // <<< USES vInstanceFlowerGrowTime internally
-
-            // --- Combine colors ---
-            vec3 final_color = vec3(0.0);
-            final_color += (stem_shape * stem_color);
-            // *** Use vInstanceFlowerGrowTime for green tint timing ***
-            final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(vInstanceFlowerGrowTime, 1.0), 0.0))); // Use flower time
-            final_color += (flower_front_shape * flower_color);
-            final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape);
-            final_color.b *= 1.0 - (flower_back_shape * flower_front_shape);
-
-            // --- Calculate Final Alpha ---
-            float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape));
-            alpha = smoothstep(0.0, 0.05, alpha); // Soften edge alpha
-            alpha *= 0.7; // Apply semi-transparency <<< TWEAK THIS >>>
-
-            if (alpha < 0.01) discard;
-            gl_FragColor = vec4(final_color, alpha);
-        }
+        varying vec2 vUv; varying vec2 vInstanceRandomVec2; varying float vInstanceStemGrowTime; varying float vInstanceFlowerGrowTime;
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+        float snoise(vec2 v) { const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439); vec2 i = floor(v + dot(v, C.yy)); vec2 x0 = v - i + dot(i, C.xx); vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0); vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod289(i); vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0)); vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0); m = m*m; m = m*m; vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5); vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h); vec3 g; g.x = a0.x * x0.x + h.x * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw; return 130.0 * dot(m, g); }
+        float get_flower_shape(vec2 _p, float _pet_n, float _angle, float _outline) { _angle *= 3.0; _p = vec2(_p.x * cos(_angle) - _p.y * sin(_angle), _p.x * sin(_angle) + _p.y * cos(_angle)); float a = atan(_p.y, _p.x); float flower_sectoral_shape = pow(abs(sin(a * _pet_n)), 0.4) + 0.25; vec2 flower_size_range = vec2(0.03, 0.1); float base_scale_factor = 0.55; float size = (flower_size_range[0] + vInstanceRandomVec2[0] * flower_size_range[1]) * base_scale_factor; float dist = length(_p); float flower_radial_shape = pow(dist / size, 2.0); flower_radial_shape -= 0.1 * sin(8.0 * a); flower_radial_shape = max(0.1, flower_radial_shape); float grow_progress = pow(min(vInstanceFlowerGrowTime / 1.5, 1.0), 0.4); float shape_value = smoothstep(flower_sectoral_shape, flower_sectoral_shape * 0.8, flower_radial_shape); float flower_shape = shape_value * grow_progress; return flower_shape; }
+        float get_stem_shape(vec2 _p, vec2 _plane_uv, float _w, float _angle) { _w = max(0.004, _w); _w *= 0.6; float bend_amount = 0.8; float x_offset = _p.y * sin(_angle * 2.0) * bend_amount; x_offset *= pow(max(0.0, _plane_uv.y), 1.5); _p.x -= x_offset; float noise_power = 0.6; float stem_noise = noise_power * snoise(8.0 * _plane_uv + vInstanceRandomVec2[0] * 5.0); stem_noise *= smoothstep(0.0, 0.15, length(_p)); stem_noise *= smoothstep(0.0, 0.05, _plane_uv.y); _p.x += stem_noise * 0.1; float left = smoothstep(-_w, 0.0, _p.x); float right = 1.0 - smoothstep(0.0, _w, _p.x); float stem_line = left * right; float grow_progress = pow(min(vInstanceStemGrowTime / 0.8, 1.0), 0.6); float grow_height = -0.5 + grow_progress * 0.5; float height_mask = smoothstep(grow_height - 0.05, grow_height, _p.y); float stem_shape = stem_line * height_mask; stem_shape *= smoothstep(0.01, -0.01, _p.y); stem_shape *= step(0.0, _plane_uv.y); return stem_shape; }
+        void main() { vec2 centeredUv = vUv - 0.5; vec3 stem_color = vec3(0.1 + vInstanceRandomVec2[0] * 0.6, 0.6, 0.2); vec3 flower_color = vec3(0.6 + 0.5 * vInstanceRandomVec2[1], 0.1, 0.9 - 0.5 * vInstanceRandomVec2[1]); float angle = 1.5 * (vInstanceRandomVec2[0] - 0.5); float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle); float petals_back_number = 2.0 + floor(vInstanceRandomVec2[0] * 3.0); float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(vInstanceFlowerGrowTime, 1.5); float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5); float petals_front_number = 3.0 + floor(vInstanceRandomVec2[1] * 3.0); float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0); vec3 final_color = vec3(0.0); final_color += (stem_shape * stem_color); final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(vInstanceFlowerGrowTime, 1.0), 0.0))); final_color += (flower_front_shape * flower_color); final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape); final_color.b *= 1.0 - (flower_back_shape * flower_front_shape); float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape)); alpha = smoothstep(0.0, 0.05, alpha); alpha *= 0.7; if (alpha < 0.01) discard; gl_FragColor = vec4(final_color, alpha); }
     </script>
 </head>
 
@@ -496,9 +357,6 @@
 
     <script type="module">
 
-        // Import THREE if using modules, otherwise rely on global script include
-        // import * as THREE from 'path/to/three.module.js';
-
         document.addEventListener('DOMContentLoaded', function () {
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
@@ -518,19 +376,15 @@
             let messageObject, responseObject;
             let isPlaced = false;
 
-            // --- Instanced Mesh Setup ---
             let instancedFlowers;
-            const MAX_FLOWERS = 2500; // Max number of flowers <<< TWEAK THIS >>>
-            let currentFlowerCount = 0; // Flowers currently visible
-            // Typed arrays for instance attributes
-            let instanceStemGrowTimes = new Float32Array(MAX_FLOWERS);   // Separate stem time
-            let instanceFlowerGrowTimes = new Float32Array(MAX_FLOWERS); // Separate flower time
+            const MAX_FLOWERS = 2500; let currentFlowerCount = 0;
+            let instanceStemGrowTimes = new Float32Array(MAX_FLOWERS);
+            let instanceFlowerGrowTimes = new Float32Array(MAX_FLOWERS);
             let instanceRandomVec2s = new Float32Array(MAX_FLOWERS * 2);
-            let instanceStemGrowDuration = new Float32Array(MAX_FLOWERS); // Stem duration
-            let instanceFlowerGrowDuration = new Float32Array(MAX_FLOWERS);// Flower duration
-            // JS array to trigger overall blooming state
+            let instanceStemGrowDuration = new Float32Array(MAX_FLOWERS);
+            let instanceFlowerGrowDuration = new Float32Array(MAX_FLOWERS);
             let instanceIsBlooming = new Array(MAX_FLOWERS).fill(false);
-            const dummy = new THREE.Object3D(); // Reusable object for matrix calculation
+            const dummy = new THREE.Object3D();
 
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -544,24 +398,46 @@
 
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-            // --- Initialization ---
             initAR();
 
-            function initAR() { /* ... (Keep as is) ... */
+            function initAR() {
+                console.log("DEBUG: initAR() called");
                 debugLog('Fn: initAR START'); startCamera();
-                if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') { permissionOverlay.style.display = 'flex'; permissionBtn.addEventListener('click', requestMotionPermission, { once: true }); } else { if (loadingScreen) loadingScreen.style.display = 'none'; initThree(); }
+                if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    debugLog('iOS: showing motion permission overlay'); permissionOverlay.style.display = 'flex';
+                    permissionBtn.addEventListener('click', requestMotionPermission, { once: true });
+                } else {
+                    debugLog('Non-iOS or older: proceeding to initThree');
+                    if (loadingScreen) loadingScreen.style.display = 'none';
+                    console.log("DEBUG: Calling initThree() from initAR (non-iOS path)");
+                    initThree();
+                }
                 debugLog('Fn: initAR END');
             }
-            function requestMotionPermission() { /* ... (Keep as is) ... */
-                debugLog('Fn: requestMotionPermission START'); DeviceOrientationEvent.requestPermission().then(response => { if (response === 'granted') { permissionOverlay.style.display = 'none'; if (loadingScreen) loadingScreen.style.display = 'none'; initThree(); } else { alert('Motion sensor access is required for this experience.'); if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied...</p>'; } }).catch(error => { alert('Error requesting motion sensor access.'); if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors...</p>'; }); debugLog('Fn: requestMotionPermission END');
+            function requestMotionPermission() {
+                console.log("DEBUG: requestMotionPermission() called");
+                debugLog('Fn: requestMotionPermission START');
+                DeviceOrientationEvent.requestPermission().then(response => {
+                    if (response === 'granted') {
+                        debugLog('Motion permission: GRANTED.'); permissionOverlay.style.display = 'none';
+                        if (loadingScreen) loadingScreen.style.display = 'none';
+                        console.log("DEBUG: Calling initThree() from requestMotionPermission (granted)");
+                        initThree();
+                    } else {
+                        debugLog('Motion permission: DENIED.'); alert('Motion sensor access is required for this experience.');
+                        if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload and grant permission.</p>';
+                    }
+                }).catch(error => {
+                    debugLog('Motion permission ERROR: ' + error); alert('Error requesting motion sensor access.');
+                    if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
+                });
+                debugLog('Fn: requestMotionPermission END');
             }
-            function startCamera() { /* ... (Keep as is) ... */
-                debugLog('Fn: startCamera START'); if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert('Camera access not supported...'); return; }
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: window.innerWidth }, height: { ideal: window.innerHeight } } }).then(stream => { cameraFeed.srcObject = stream; cameraFeed.onloadedmetadata = () => { debugLog('Camera feed loaded.'); cameraFeed.play(); }; }).catch(err => { console.error('Camera access ERROR:', err); if (err.name === "NotAllowedError") { alert("Camera access denied..."); } else { alert('Could not access camera...'); } }); debugLog('Fn: startCamera END');
-            }
+            function startCamera() { /* ... (Keep as is) ... */ }
 
             function initThree() {
                 try {
+                    console.log("DEBUG: initThree() START"); // <<< ADDED CONSOLE LOG
                     debugLog('Fn: initThree START (Instanced - Separate Growth)');
                     scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.set(0, 1.6, 0);
                     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setClearColor(0x000000, 0); canvasContainer.appendChild(renderer.domElement);
@@ -569,130 +445,100 @@
                     controls = new THREE.DeviceOrientationControls(camera); clock = new THREE.Clock();
                     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambientLight); const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7); directionalLight.position.set(1, 3, 2); scene.add(directionalLight);
 
-                    // --- Create BASE Geometry and Material ---
                     const baseFlowerGeometry = createBaseFlowerGeometry();
-                    const baseFlowerMaterial = createBaseFlowerMaterial(); // Uses updated shader IDs
+                    const baseFlowerMaterial = createBaseFlowerMaterial();
 
-                    // --- Create InstancedMesh ---
                     instancedFlowers = new THREE.InstancedMesh(baseFlowerGeometry, baseFlowerMaterial, MAX_FLOWERS);
                     instancedFlowers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-                    // <<< Add BOTH time attributes >>>
                     baseFlowerGeometry.setAttribute('instanceRandomVec2', new THREE.InstancedBufferAttribute(instanceRandomVec2s, 2));
-                    baseFlowerGeometry.setAttribute('instanceStemGrowTime', new THREE.InstancedBufferAttribute(instanceStemGrowTimes, 1));     // Attach stem time buffer
-                    baseFlowerGeometry.setAttribute('instanceFlowerGrowTime', new THREE.InstancedBufferAttribute(instanceFlowerGrowTimes, 1)); // Attach flower time buffer
+                    baseFlowerGeometry.setAttribute('instanceStemGrowTime', new THREE.InstancedBufferAttribute(instanceStemGrowTimes, 1));
+                    baseFlowerGeometry.setAttribute('instanceFlowerGrowTime', new THREE.InstancedBufferAttribute(instanceFlowerGrowTimes, 1));
                     instancedFlowers.count = 0;
                     scene.add(instancedFlowers);
+                    console.log("DEBUG: instancedFlowers object:", instancedFlowers); // <<< ADDED CONSOLE LOG
                     debugLog(`InstancedMesh created for ${MAX_FLOWERS} max flowers (Separate Growth).`);
 
-                    // --- Setup remaining scene parts ---
                     createCSS2DObjects(); window.addEventListener('resize', onWindowResize); animate();
+                    console.log("DEBUG: initThree() COMPLETED SUCCESSFULLY"); // <<< ADDED CONSOLE LOG
                     debugLog('Fn: initThree END (Instanced - Separate Growth).');
-                } catch (error) { console.error("Error during Three.js initialization:", error); debugLog("THREE.JS INIT CRASH: " + error.message); alert("A rendering error occurred..."); }
+                } catch (error) {
+                    console.error("DEBUG: CRITICAL ERROR during Three.js initialization:", error); // <<< ENHANCED CATCH
+                    debugLog("THREE.JS INIT CRASH: " + error.message);
+                    alert("A critical rendering error occurred. Please try reloading the page.");
+                }
             }
+            function createBaseFlowerGeometry() { /* ... (Keep as is) ... */ }
+            function createBaseFlowerMaterial() { /* ... (Keep as is) ... */ }
+            function createCSS2DObjects() { /* ... (Keep as is) ... */ }
 
-            function createBaseFlowerGeometry() { /* ... (Keep as is) ... */
-                const flowerSize = 1.8; // <<< TWEAK THIS >>> Base size of flower planes
-                debugLog(`Base flower geometry size: ${flowerSize.toFixed(2)}`); return new THREE.PlaneGeometry(flowerSize, flowerSize);
-            }
-            function createBaseFlowerMaterial() { /* ... (Keep as is - uses updated shader IDs) ... */
-                const uniforms = { u_time: { value: 0.0 }, };
-                return new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: document.getElementById('flowerVertexShader').textContent, fragmentShader: document.getElementById('flowerFragmentShader').textContent, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-            }
-            function createCSS2DObjects() { /* ... (Keep as is) ... */
-                debugLog('Fn: createCSS2DObjects START'); if (!messageElement || !responseElement) { debugLog('CRITICAL ERROR: HTML element for text not found!'); return; } messageObject = new THREE.CSS2DObject(messageElement); messageObject.position.set(0, 4, -4.0); scene.add(messageObject); messageObject.visible = false; responseObject = new THREE.CSS2DObject(responseElement); responseObject.position.set(0, 0.5, -3.8); scene.add(responseObject); responseObject.visible = false; debugLog('Fn: createCSS2DObjects END');
-            }
-
-            // --- Flower Placement (Instanced - Separate Growth) ---
             function placeFlowers() {
                 if (!instancedFlowers) { debugLog("ERROR: InstancedMesh not ready."); return; }
                 debugLog(`Fn: placeFlowers START (Instanced - Separate Growth Max ${MAX_FLOWERS}).`);
                 const flowerCount = MAX_FLOWERS; const minDistance = 1.5; const maxDistance = 18.0; const minHeight = -2.0; const maxHeight = 1.5;
-                debugLog(`Flower height range: Y ${minHeight} to Y ${maxHeight}`);
                 instanceIsBlooming.fill(false); instanceStemGrowTimes.fill(0); instanceFlowerGrowTimes.fill(0); instanceRandomVec2s.fill(0); instanceStemGrowDuration.fill(0); instanceFlowerGrowDuration.fill(0); currentFlowerCount = flowerCount;
-                const baseQuaternion = new THREE.Quaternion();
                 for (let i = 0; i < currentFlowerCount; i++) {
                     const angle = Math.random() * Math.PI * 2; const distance = minDistance + Math.random() * (maxDistance - minDistance); const x = Math.cos(angle) * distance; const z = Math.sin(angle) * distance; const y = (camera.position.y - 1.6) + (minHeight + Math.random() * (maxHeight - minHeight));
                     dummy.position.set(x, y, z); dummy.rotation.set(Math.random() * 0.4 - 0.2, Math.random() * Math.PI * 2, Math.random() * 0.4 - 0.2); const scaleVariation = 0.6 + Math.random() * 0.8; dummy.scale.set(scaleVariation, scaleVariation, scaleVariation); dummy.updateMatrix(); instancedFlowers.setMatrixAt(i, dummy.matrix);
                     instanceRandomVec2s[i * 2 + 0] = Math.random(); instanceRandomVec2s[i * 2 + 1] = Math.random(); instanceStemGrowTimes[i] = 0.0; instanceFlowerGrowTimes[i] = 0.0;
-                    instanceStemGrowDuration[i] = 0.6 + Math.random() * 0.4;   // Stem grows ~0.6-1.0s <<< TWEAK >>>
-                    instanceFlowerGrowDuration[i] = 1.0 + Math.random() * 1.0; // Flower blooms ~1.0-2.0s AFTER stem <<< TWEAK >>>
-                    setTimeout(() => { instanceIsBlooming[i] = true; }, 200 + Math.random() * 3000); // Stagger start <<< TWEAK >>>
+                    instanceStemGrowDuration[i] = 0.6 + Math.random() * 0.4; instanceFlowerGrowDuration[i] = 1.0 + Math.random() * 1.0;
+                    setTimeout(() => { instanceIsBlooming[i] = true; }, 200 + Math.random() * 3000);
                 }
                 instancedFlowers.instanceMatrix.needsUpdate = true; instancedFlowers.geometry.attributes.instanceRandomVec2.needsUpdate = true; instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true; instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true; instancedFlowers.count = currentFlowerCount;
                 debugLog(`Placed ${currentFlowerCount} instanced flowers (Separate Growth).`);
             }
-
-            // --- Flower Removal (Instanced) ---
-            function removeFlowers() { /* ... (Keep as is) ... */
-                if (instancedFlowers) { debugLog(`Removing ${instancedFlowers.count} instanced flowers...`); instancedFlowers.count = 0; instancedFlowers.instanceMatrix.needsUpdate = true; instanceIsBlooming.fill(false); instanceStemGrowTimes.fill(0); instanceFlowerGrowTimes.fill(0); currentFlowerCount = 0; debugLog('Instanced flowers hidden.'); } else { debugLog('removeFlowers called, but no InstancedMesh found.'); }
-            }
-
-            // --- Animation Loop ---
-            function animate() { /* ... (Keep as is) ... */
-                requestAnimationFrame(animate); if (controls) controls.update(); if (!clock || !instancedFlowers) return;
-                const delta = clock.getDelta(); const elapsedTime = clock.getElapsedTime(); if (isPlaced) { updateFlowerAnimations(delta, elapsedTime); }
-                if (renderer && scene && camera) renderer.render(scene, camera); if (css2dRenderer && scene && camera) css2dRenderer.render(scene, camera);
-            }
-
-            // --- Update Flower Animations (Instanced - Separate Growth) ---
-            function updateFlowerAnimations(delta, elapsedTime) {
-                if (!instancedFlowers || instancedFlowers.count === 0) return;
-                let needsStemTimeUpdate = false;
-                let needsFlowerTimeUpdate = false;
-                instancedFlowers.material.uniforms.u_time.value = elapsedTime; // Update global time
-
-                for (let i = 0; i < instancedFlowers.count; i++) {
-                    if (instanceIsBlooming[i]) {
-                        let currentStemTime = instanceStemGrowTimes[i];
-                        let currentFlowerTime = instanceFlowerGrowTimes[i];
-                        const stemDuration = instanceStemGrowDuration[i];
-                        const flowerDuration = instanceFlowerGrowDuration[i];
-
-                        // Update Stem Growth
-                        if (currentStemTime < stemDuration) {
-                            currentStemTime += delta;
-                            instancedFlowers.geometry.attributes.instanceStemGrowTime.setX(i, currentStemTime);
-                            needsStemTimeUpdate = true;
-                        }
-                        // Update Flower Growth ONLY if stem is (almost) finished
-                        else if (currentFlowerTime < flowerDuration) {
-                            currentFlowerTime += delta;
-                            instancedFlowers.geometry.attributes.instanceFlowerGrowTime.setX(i, currentFlowerTime);
-                            needsFlowerTimeUpdate = true;
-                        }
-
-                        // Update JS array (optional if reading directly from buffer isn't feasible/desired)
-                        instanceStemGrowTimes[i] = currentStemTime;
-                        instanceFlowerGrowTimes[i] = currentFlowerTime;
-                    }
-                }
-
-                // Update GPU buffers if changes occurred
-                if (needsStemTimeUpdate) instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true;
-                if (needsFlowerTimeUpdate) instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true;
-            }
-
-            function onWindowResize() { /* ... (Keep as is) ... */
-                camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); if (css2dRenderer) css2dRenderer.setSize(window.innerWidth, window.innerHeight); debugLog('Fn: onWindowResize executed.');
-            }
+            function removeFlowers() { /* ... (Keep as is) ... */ }
+            function animate() { /* ... (Keep as is) ... */ }
+            function updateFlowerAnimations(delta, elapsedTime) { /* ... (Keep as is) ... */ }
+            function onWindowResize() { /* ... (Keep as is) ... */ }
 
             // --- UI Event Listeners ---
-            if (!placeBtn) { /* ... */ } else { placeBtn.addEventListener('click', function () { /* ... (calls updated placeFlowers) ... */ }); }
-            if (!resetBtn) { /* ... */ } else { resetBtn.addEventListener('click', function () { /* ... (calls updated removeFlowers) ... */ }); }
-            if (!responseToggle) { /* ... */ } else { responseToggle.addEventListener('click', function () { /* ... */ }); }
+            if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
+            else {
+                debugLog("placeBtn element FOUND. Attaching listener.");
+                placeBtn.addEventListener('click', function () {
+                    alert("DEBUG: Place button was clicked!"); // <<< ADDED ALERT
+                    console.log("DEBUG: Place button click handler initiated."); // <<< ADDED CONSOLE LOG
+                    debugLog('Fn: placeBtn CLICKED (Instanced - Separate Growth).');
 
-            // --- Response Loading and Form Submission ---
+                    if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
+
+                    // <<< ENHANCED GUARD CLAUSE >>>
+                    if (!instancedFlowers || !scene || !camera) {
+                        console.error('DEBUG: PlaceBtn CRITICAL - Prerequisite objects not ready!', {
+                            instancedFlowersReady: !!instancedFlowers,
+                            sceneReady: !!scene,
+                            cameraReady: !!camera
+                        });
+                        debugLog('PlaceBtn: CRITICAL - InstancedMesh, Scene, or Camera not ready! initThree() might not have completed or run.');
+                        alert("The garden components are not ready yet. Please wait a moment. If this persists, try reloading or check permissions.");
+                        return;
+                    }
+
+                    if (messageObject && responseObject && messageObject.element && responseObject.element) {
+                        messageObject.visible = true; messageObject.element.style.display = 'block';
+                        responseObject.visible = true; responseObject.element.style.display = 'block';
+                    } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
+                    placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
+                    responseToggle.style.display = 'flex'; instructions.style.display = 'none';
+                    placeFlowers();
+                    isPlaced = true; loadResponses();
+                    debugLog('PlaceBtn: Instanced Garden PLACED.');
+                });
+            }
+            if (!resetBtn) { /* ... (Keep as is) ... */ } else { /* ... */ }
+            if (!responseToggle) { /* ... (Keep as is) ... */ } else { /* ... */ }
+
+            // --- Response Loading and Form Submission Logic ---
             function loadResponses() { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */ }
             function showNextResponse() { /* ... (Keep as is) ... */ }
             const gardenForm = document.getElementById('garden-response-form');
-            if (!gardenForm) { /* ... */ } else { gardenForm.addEventListener('submit', function (e) { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */ }); }
+            if (!gardenForm) { /* ... (Keep as is) ... */ } else { /* ... */ }
 
             // Hide loading screen
             if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
                 setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
             }
-
-        }); // End DOMContentLoaded
+        });
     </script>
 </body>
 
