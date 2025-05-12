@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,11 +9,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@400;700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+
+
+
     <style>
         body {
             margin: 0;
@@ -20,7 +24,7 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
         }
-        
+
         #loading {
             position: fixed;
             top: 0;
@@ -38,7 +42,7 @@
             padding: 20px;
             box-sizing: border-box;
         }
-        
+
         #loading-progress {
             width: 80%;
             max-width: 300px;
@@ -48,19 +52,19 @@
             margin-top: 20px;
             overflow: hidden;
         }
-        
+
         #loading-bar {
             height: 100%;
             width: 0%;
             background-color: #4CAF50;
             transition: width 0.3s ease;
         }
-        
+
         #loading-text {
             margin-top: 10px;
             font-size: 14px;
         }
-        
+
         #camera-feed {
             position: fixed;
             top: 0;
@@ -70,7 +74,7 @@
             object-fit: cover;
             z-index: 1;
         }
-        
+
         #canvas-container {
             position: fixed;
             top: 0;
@@ -80,35 +84,46 @@
             z-index: 2;
             pointer-events: none;
         }
-        
-        #        #message-container {
+
+        # #message-container {
             position: absolute;
-            top: 20%; /* You might need to adjust this after increasing font size */
+            top: 20%;
+            /* You might need to adjust this after increasing font size */
             left: 50%;
             transform: translateX(-50%);
             color: white;
-            /* background-color: rgba(0, 0, 0, 0.5); */ /* REMOVED */
-            background: none; /* Ensure no background */
-            /* padding: 10px 15px; */ /* REMOVED or adjust if needed */
-            padding: 5px; /* Minimal padding if any */
-            border-radius: 10px; /* Might be less relevant without a background */
+            /* background-color: rgba(0, 0, 0, 0.5); */
+            /* REMOVED */
+            background: none;
+            /* Ensure no background */
+            /* padding: 10px 15px; */
+            /* REMOVED or adjust if needed */
+            padding: 5px;
+            /* Minimal padding if any */
+            border-radius: 10px;
+            /* Might be less relevant without a background */
             text-align: center;
-            font-family: 'Gwendolyn', cursive; /* USE GWENDOLYN FONT */
-            font-weight: 700; /* Gwendolyn has 400 and 700, let's try bold */
-            font-size: 64px; /* REALLY BIG - adjust as needed */
+            font-family: 'Gwendolyn', cursive;
+            /* USE GWENDOLYN FONT */
+            font-weight: 700;
+            /* Gwendolyn has 400 and 700, let's try bold */
+            font-size: 64px;
+            /* REALLY BIG - adjust as needed */
             /* Consider line-height if the text wraps and looks cramped */
             line-height: 1.2;
-            max-width: 90%; /* Allow it to be wider if needed for the large font */
+            max-width: 90%;
+            /* Allow it to be wider if needed for the large font */
             animation: float 4s ease-in-out infinite;
             z-index: 10;
             pointer-events: none;
             display: none;
             /* Add text-shadow for readability against camera feed */
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7),
-                         0 0 10px rgba(0,0,0,0.5); /* Softer, broader shadow plus a sharper one */
+                0 0 10px rgba(0, 0, 0, 0.5);
+            /* Softer, broader shadow plus a sharper one */
         }
 
-        
+
         #response-display {
             position: absolute;
             top: 35%;
@@ -127,13 +142,21 @@
             pointer-events: none;
             display: none;
         }
-        
+
         @keyframes float {
-            0% { transform: translateX(-50%) translateY(0); }
-            50% { transform: translateX(-50%) translateY(-10px); }
-            100% { transform: translateX(-50%) translateY(0); }
+            0% {
+                transform: translateX(-50%) translateY(0);
+            }
+
+            50% {
+                transform: translateX(-50%) translateY(-10px);
+            }
+
+            100% {
+                transform: translateX(-50%) translateY(0);
+            }
         }
-        
+
         .controls {
             position: fixed;
             bottom: 20px;
@@ -144,7 +167,7 @@
             box-sizing: border-box;
             z-index: 10;
         }
-        
+
         .btn {
             width: 60px;
             height: 60px;
@@ -156,22 +179,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
         }
-        
+
         #place-btn {
             background-color: #4CAF50;
         }
-        
+
         #reset-btn {
             background-color: #f44336;
             display: none;
         }
-        
+
         #response-toggle {
             display: none;
         }
-        
+
         #response-form {
             position: fixed;
             bottom: 90px;
@@ -186,7 +209,7 @@
             z-index: 100;
             display: none;
         }
-        
+
         #response-form input,
         #response-form textarea {
             width: 100%;
@@ -197,12 +220,12 @@
             background: rgba(255, 255, 255, 0.9);
             font-family: Arial, sans-serif;
         }
-        
+
         #response-form textarea {
             height: 80px;
             resize: none;
         }
-        
+
         #response-form button {
             background: #4CAF50;
             color: white;
@@ -213,19 +236,19 @@
             font-weight: bold;
             width: 100%;
         }
-        
+
         #response-form h3 {
             margin-top: 0;
             text-align: center;
         }
-        
+
         #response-status {
             margin-top: 10px;
             text-align: center;
             font-weight: bold;
             min-height: 20px;
         }
-        
+
         #instructions {
             position: fixed;
             top: 10px;
@@ -240,7 +263,7 @@
             z-index: 10;
             max-width: 80%;
         }
-        
+
         #permission-overlay {
             position: fixed;
             top: 0;
@@ -257,7 +280,7 @@
             color: white;
             padding: 20px;
         }
-        
+
         #permission-btn {
             margin-top: 20px;
             padding: 12px 24px;
@@ -268,7 +291,7 @@
             font-size: 18px;
             cursor: pointer;
         }
-        
+
         #debug-info {
             position: fixed;
             top: 10px;
@@ -284,6 +307,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Loading screen -->
     <div id="loading">
@@ -294,59 +318,59 @@
         </div>
         <div id="loading-text">Loading: 0%</div>
     </div>
-    
+
     <!-- Permission overlay for iOS devices -->
     <div id="permission-overlay">
         <h2>Motion Sensors Required</h2>
         <p>This AR experience needs access to your device motion sensors.</p>
         <button id="permission-btn">Allow Motion Sensors</button>
     </div>
-    
+
     <!-- Camera feed -->
     <video id="camera-feed" autoplay playsinline></video>
-    
+
     <!-- Canvas for Three.js rendering -->
     <div id="canvas-container"></div>
-    
+
     <!-- Message display -->
     <div id="message-container">
         <p id="message-text">Why can't this be a community garden?</p>
     </div>
-    
+
     <!-- Response display -->
     <div id="response-display"></div>
-    
+
     <!-- Instructions -->
     <div id="instructions">Tap the green button to experience the garden, then look around</div>
-    
+
     <!-- Controls -->
     <div class="controls">
         <button id="response-toggle" class="btn">+</button>
         <button id="place-btn" class="btn">🌸</button>
         <button id="reset-btn" class="btn">↺</button>
     </div>
-    
+
     <!-- Response form -->
     <div id="response-form">
         <h3>Share Your Thoughts</h3>
         <form id="garden-response-form">
             <label for="name">Your Name:</label>
             <input type="text" id="name" name="name" required>
-            
+
             <label for="message">Why can't this be a community garden?</label>
             <textarea id="message" name="message" required></textarea>
-            
+
             <button type="submit">Submit</button>
         </form>
         <div id="response-status"></div>
     </div>
-    
+
     <!-- Debug info -->
     <div id="debug-info"></div>
-    
+
     <script>
         // Wait for DOM to load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Get elements
             const loading = document.getElementById('loading');
             const loadingBar = document.getElementById('loading-bar');
@@ -363,7 +387,7 @@
             const responseToggle = document.getElementById('response-toggle');
             const responseForm = document.getElementById('response-form');
             const debugInfo = document.getElementById('debug-info');
-            
+
             // App state
             let isPlaced = false;
             let scene, camera, renderer, controls;
@@ -371,16 +395,16 @@
             let flowers = [];
             let modelsLoaded = false;
             let modelsLoading = false;
-            
+
             // Check for URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.has('debug');
-            
+
             // Enable debug info if in debug mode
             if (debugMode) {
                 debugInfo.style.display = 'block';
             }
-            
+
             // Debug log function
             function debugLog(message) {
                 if (debugMode) {
@@ -388,26 +412,26 @@
                     debugInfo.textContent = message;
                 }
             }
-            
+
             // Check for iOS device
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            
+
             // Initialize the AR experience
             initAR();
-            
+
             // Initialize AR experience
             function initAR() {
                 debugLog('Initializing AR...');
-                
+
                 // Start camera
                 startCamera();
-                
+
                 // Check for device orientation permission on iOS
                 if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     debugLog('iOS device detected, showing permission overlay');
                     permissionOverlay.style.display = 'flex';
-                    
-                    permissionBtn.addEventListener('click', function() {
+
+                    permissionBtn.addEventListener('click', function () {
                         requestMotionPermission();
                     });
                 } else {
@@ -416,11 +440,11 @@
                     initThree();
                 }
             }
-            
+
             // Request motion sensor permission (for iOS 13+)
             function requestMotionPermission() {
                 debugLog('Requesting motion permission...');
-                
+
                 DeviceOrientationEvent.requestPermission()
                     .then(response => {
                         if (response === 'granted') {
@@ -437,78 +461,78 @@
                         alert('Error accessing motion sensors. Please try again or use a different device.');
                     });
             }
-            
+
             // Function to start camera
             function startCamera() {
                 debugLog('Starting camera...');
-                
+
                 // Check for camera support
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     alert('Sorry, your browser does not support camera access. Please try a different browser.');
                     loading.innerHTML = '<h1>Camera Not Supported</h1><p>Please try a different browser.</p>';
                     return;
                 }
-                
+
                 // Get camera feed
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { 
+                navigator.mediaDevices.getUserMedia({
+                    video: {
                         facingMode: 'environment',
                         width: { ideal: window.innerWidth },
                         height: { ideal: window.innerHeight }
-                    } 
+                    }
                 })
-                .then(function(stream) {
-                    cameraFeed.srcObject = stream;
-                    
-                    // When video is ready
-                    cameraFeed.onloadedmetadata = function() {
-                        debugLog('Camera feed loaded');
-                        cameraFeed.play();
-                    };
-                })
-                .catch(function(err) {
-                    console.error('Error accessing camera:', err);
-                    debugLog('Camera error: ' + err.message);
-                    loading.innerHTML = '<h1>Camera Access Error</h1><p>Please allow camera access to use this app.</p>';
-                });
+                    .then(function (stream) {
+                        cameraFeed.srcObject = stream;
+
+                        // When video is ready
+                        cameraFeed.onloadedmetadata = function () {
+                            debugLog('Camera feed loaded');
+                            cameraFeed.play();
+                        };
+                    })
+                    .catch(function (err) {
+                        console.error('Error accessing camera:', err);
+                        debugLog('Camera error: ' + err.message);
+                        loading.innerHTML = '<h1>Camera Access Error</h1><p>Please allow camera access to use this app.</p>';
+                    });
             }
-            
+
             // Initialize Three.js
             function initThree() {
                 debugLog('Initializing Three.js...');
-                
+
                 // Create scene
                 scene = new THREE.Scene();
-                
+
                 // Create camera (will be updated based on device orientation)
                 camera = new THREE.PerspectiveCamera(
-                    75, 
-                    window.innerWidth / window.innerHeight, 
-                    0.1, 
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
                     1000
                 );
                 camera.position.set(0, 1.6, 0);  // Approximate eye height
-                
+
                 // Create renderer
                 renderer = new THREE.WebGLRenderer({ alpha: true });
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setClearColor(0x000000, 0); // Transparent background
                 canvasContainer.appendChild(renderer.domElement);
-                
+
                 // Create device orientation controls
                 controls = new THREE.DeviceOrientationControls(camera);
-                
+
                 // Create lights
                 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
                 scene.add(ambientLight);
-                
+
                 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
                 directionalLight.position.set(1, 1, 1);
                 scene.add(directionalLight);
-                
+
                 // Create ground plane
                 const groundGeometry = new THREE.CircleGeometry(20, 32);
-                const groundMaterial = new THREE.MeshBasicMaterial({ 
+                const groundMaterial = new THREE.MeshBasicMaterial({
                     color: 0x7c5c3c,
                     transparent: true,
                     opacity: 0.3,
@@ -520,51 +544,51 @@
                 ground.visible = false;
                 scene.add(ground);
                 window.ground = ground;
-                
+
                 // Start animation loop
                 animate();
-                
+
                 // Load flower models (with priority)
                 loadFlowerModels();
-                
+
                 // Handle window resize
                 window.addEventListener('resize', onWindowResize);
-                
+
                 debugLog('Three.js initialized');
             }
-            
+
             // Animation loop
             function animate() {
                 requestAnimationFrame(animate);
-                
+
                 // Update device orientation controls
                 if (controls) {
                     controls.update();
                 }
-                
+
                 // Update flower animations if placed
                 if (isPlaced) {
                     updateFlowerAnimations();
                 }
-                
+
                 renderer.render(scene, camera);
             }
-            
+
             // Handle window resize
             function onWindowResize() {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
             }
-            
+
             // Load flower GLB models
             function loadFlowerModels() {
                 // Prevent double loading
                 if (modelsLoading) return;
                 modelsLoading = true;
-                
+
                 debugLog('Loading GLB flower models...');
-                
+
                 // Define flower model paths
                 const flowerFiles = [
                     '6 Orchid.glb',
@@ -580,38 +604,38 @@
                     '27 Anemone.glb',
                     '30 Primrose.glb'
                 ];
-                
+
                 // Create an array of flower models to load
                 const flowerPaths = flowerFiles.map(filename => {
-                    return { 
-                        path: `./models/${filename}`, 
+                    return {
+                        path: `./models/${filename}`,
                         scale: 0.5,
                         name: filename.replace('.glb', '')
                     };
                 });
-                
+
                 // Set up loader
                 const loader = new THREE.GLTFLoader();
                 let loadedCount = 0;
                 let successCount = 0;
                 const totalModels = flowerPaths.length;
-                
+
                 // Check if all models have been processed
                 const checkAllLoaded = () => {
                     loadedCount++;
-                    
+
                     // Update progress
                     const percent = Math.round((loadedCount / totalModels) * 100);
                     loadingBar.style.width = `${percent}%`;
                     loadingText.textContent = `Loading: ${percent}% (${successCount} models loaded)`;
-                    
+
                     // Once all models have been processed
                     if (loadedCount >= totalModels) {
                         debugLog(`Model loading complete: ${successCount}/${totalModels} models loaded`);
-                        
+
                         if (successCount > 0) {
                             modelsLoaded = true;
-                            
+
                             // Hide loading screen after a brief delay
                             setTimeout(() => {
                                 loading.style.display = 'none';
@@ -620,7 +644,7 @@
                             // No models loaded successfully
                             debugLog('No GLB models loaded successfully, using fallbacks');
                             createFallbackFlowerModels();
-                            
+
                             // Hide loading screen after creating fallbacks
                             setTimeout(() => {
                                 loading.style.display = 'none';
@@ -628,7 +652,7 @@
                         }
                     }
                 };
-                
+
                 // Load each model with a small delay to avoid overwhelming the browser
                 flowerPaths.forEach((flowerInfo, index) => {
                     // Add a small staggered delay to prevent overwhelming the browser
@@ -644,7 +668,7 @@
                                         type: 'gltf',
                                         name: flowerInfo.name
                                     });
-                                    
+
                                     successCount++;
                                     debugLog(`Successfully loaded: ${flowerInfo.path}`);
                                     checkAllLoaded();
@@ -670,7 +694,7 @@
                         }
                     }, index * 100); // Stagger loading by 100ms per model
                 });
-                
+
                 // If no models load after a timeout, create fallbacks
                 setTimeout(() => {
                     if (successCount === 0 && !modelsLoaded) {
@@ -680,14 +704,14 @@
                     }
                 }, 15000); // 15 second timeout
             }
-            
+
             // Create fallback flower models
             function createFallbackFlowerModels() {
                 // Only create fallbacks if we don't have GLB models
                 if (flowerModels.length > 0) return;
-                
+
                 debugLog('Creating fallback flower models...');
-                
+
                 // Flower colors
                 const flowerColors = [
                     0xFF69B4, // Pink
@@ -696,35 +720,35 @@
                     0x9400D3, // Purple
                     0x1E90FF  // Blue
                 ];
-                
+
                 // Create flower models
                 for (let i = 0; i < flowerColors.length; i++) {
                     // Create flower group
                     const flowerGroup = new THREE.Group();
-                    
+
                     // Create stem
                     const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
                     const stemMaterial = new THREE.MeshLambertMaterial({ color: 0x2ECC71 });
                     const stem = new THREE.Mesh(stemGeometry, stemMaterial);
                     stem.position.y = 0.2;
                     flowerGroup.add(stem);
-                    
+
                     // Create flower head
                     const flowerGeometry = new THREE.SphereGeometry(0.1, 12, 12);
                     const flowerMaterial = new THREE.MeshLambertMaterial({ color: flowerColors[i] });
                     const flowerHead = new THREE.Mesh(flowerGeometry, flowerMaterial);
                     flowerHead.position.y = 0.45;
                     flowerGroup.add(flowerHead);
-                    
+
                     // Create center of flower
                     const centerGeometry = new THREE.SphereGeometry(0.05, 8, 8);
-                    const centerMaterial = new THREE.MeshLambertMaterial({ 
+                    const centerMaterial = new THREE.MeshLambertMaterial({
                         color: i % 2 === 0 ? 0xFFFF00 : 0xFFA500
                     });
                     const center = new THREE.Mesh(centerGeometry, centerMaterial);
                     center.position.y = 0.47;
                     flowerGroup.add(center);
-                    
+
                     // Add leaf
                     const leafGeometry = new THREE.ConeGeometry(0.05, 0.1, 8);
                     const leafMaterial = new THREE.MeshLambertMaterial({ color: 0x2E8B57 });
@@ -732,196 +756,196 @@
                     leaf.rotation.z = Math.PI / 2;
                     leaf.position.set(0.08, 0.25, 0);
                     flowerGroup.add(leaf);
-                    
+
                     // Add to flowerModels array
                     flowerModels.push({
                         model: flowerGroup,
                         scale: 1,
                         type: 'fallback',
-                        name: `Fallback Flower ${i+1}`
+                        name: `Fallback Flower ${i + 1}`
                     });
                 }
-                
+
                 modelsLoaded = true;
                 debugLog(`${flowerModels.length} fallback models created`);
             }
-            
+
             // Handle place button click
-            placeBtn.addEventListener('click', function() {
+            placeBtn.addEventListener('click', function () {
                 if (isPlaced) return;
-                
+
                 debugLog('Placing garden...');
-                
+
                 // Show message
                 messageContainer.style.display = 'block';
                 responseDisplay.style.display = 'block';
-                
+
                 // Update UI
                 placeBtn.style.display = 'none';
                 resetBtn.style.display = 'block';
                 responseToggle.style.display = 'block';
                 instructions.style.display = 'none';
-                
+
                 // Show ground
                 window.ground.visible = true;
-                
+
                 // Place flowers in 360° around the user
                 placeFlowers();
-                
+
                 // Mark as placed
                 isPlaced = true;
-                
+
                 // Load responses
                 loadResponses();
             });
-            
+
             // Handle reset button click
-            resetBtn.addEventListener('click', function() {
+            resetBtn.addEventListener('click', function () {
                 if (!isPlaced) return;
-                
+
                 debugLog('Resetting garden...');
-                
+
                 // Hide message
                 messageContainer.style.display = 'none';
                 responseDisplay.style.display = 'none';
-                
+
                 // Update UI
                 resetBtn.style.display = 'none';
                 placeBtn.style.display = 'block';
                 responseToggle.style.display = 'none';
                 responseForm.style.display = 'none';
                 instructions.style.display = 'block';
-                
+
                 // Hide ground
                 window.ground.visible = false;
-                
+
                 // Remove flowers
                 removeFlowers();
-                
+
                 // Clear response interval if any
                 if (window.responseInterval) {
                     clearInterval(window.responseInterval);
                     window.responseInterval = null;
                 }
-                
+
                 // Reset state
                 isPlaced = false;
             });
-            
+
             // Handle response toggle
-            responseToggle.addEventListener('click', function() {
+            responseToggle.addEventListener('click', function () {
                 const isVisible = responseForm.style.display === 'block';
                 responseForm.style.display = isVisible ? 'none' : 'block';
                 responseToggle.textContent = isVisible ? '+' : 'x';
             });
-            
+
             // Handle form submission
             const gardenForm = document.getElementById('garden-response-form');
             const statusDiv = document.getElementById('response-status');
-            
-            gardenForm.addEventListener('submit', function(e) {
+
+            gardenForm.addEventListener('submit', function (e) {
                 e.preventDefault();
-                
+
                 // Get form data
                 const name = document.getElementById('name').value;
                 const message = document.getElementById('message').value;
                 const timestamp = new Date().toLocaleString();
-                
+
                 // Validate input
                 if (!name || !message) {
                     statusDiv.textContent = 'Please fill out all fields.';
                     statusDiv.style.color = '#ff6b6b';
                     return;
                 }
-                
+
                 // Update status
                 statusDiv.textContent = 'Submitting...';
                 statusDiv.style.color = 'white';
-                
+
                 // URL of your deployed Google Apps Script web app
                 const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
-                
+
                 // Prepare URL with parameters
                 const url = new URL(scriptURL);
                 url.searchParams.append('name', name);
                 url.searchParams.append('message', message);
                 url.searchParams.append('timestamp', timestamp);
-                
+
                 // Make the fetch request
                 fetch(url, {
                     method: 'POST',
                     mode: 'no-cors' // Required for Google Apps Script
                 })
-                .then(() => {
-                    // Success handling
-                    statusDiv.textContent = 'Thank you for sharing your thoughts!';
-                    statusDiv.style.color = '#4CAF50';
-                    gardenForm.reset();
-                    
-                    // Add to responses
-                    if (window.responses) {
-                        window.responses.push({ name, message });
-                    }
-                    
-                    // Hide form after successful submission
-                    setTimeout(() => {
-                        responseForm.style.display = 'none';
-                        responseToggle.textContent = '+';
-                    }, 3000);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    statusDiv.textContent = 'Network error. Please try again.';
-                    statusDiv.style.color = '#ff6b6b';
-                });
+                    .then(() => {
+                        // Success handling
+                        statusDiv.textContent = 'Thank you for sharing your thoughts!';
+                        statusDiv.style.color = '#4CAF50';
+                        gardenForm.reset();
+
+                        // Add to responses
+                        if (window.responses) {
+                            window.responses.push({ name, message });
+                        }
+
+                        // Hide form after successful submission
+                        setTimeout(() => {
+                            responseForm.style.display = 'none';
+                            responseToggle.textContent = '+';
+                        }, 3000);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        statusDiv.textContent = 'Network error. Please try again.';
+                        statusDiv.style.color = '#ff6b6b';
+                    });
             });
-            
+
             // Place flowers in 360° around the user
             function placeFlowers() {
                 debugLog(`Placing flowers with ${flowerModels.length} models available`);
-                
+
                 // How many flowers to create (10x more than before)
                 const flowerCount = 150;
-                
+
                 // Define the area to place flowers (360° around the user)
                 const minDistance = 3;  // Min distance from user (meters)
                 const maxDistance = 15; // Max distance from user (meters)
                 const minHeight = -1; // Min height (ground level)
                 const maxHeight = -0.6;  // Max height (small variance)
-                
+
                 // Individual flower data for animations
                 const flowerData = [];
-                
+
                 // Create many flowers in random positions around the user
                 for (let i = 0; i < flowerCount; i++) {
                     // Select a random flower model
                     const flowerIndex = Math.floor(Math.random() * flowerModels.length);
                     const flowerInfo = flowerModels[flowerIndex];
-                    
+
                     // Generate random position in a circle around the user
                     const angle = Math.random() * Math.PI * 2; // Random angle (0-360°)
                     const distance = minDistance + Math.random() * (maxDistance - minDistance);
                     const x = Math.cos(angle) * distance;
                     const z = Math.sin(angle) * distance;
                     const y = minHeight + Math.random() * (maxHeight - minHeight);
-                    
+
                     try {
                         // Clone the model
                         const flowerModel = flowerInfo.model.clone();
-                        
+
                         // Set position
                         flowerModel.position.set(x, y, z);
-                        
+
                         // Random scale with some variety
                         const scale = (0.4 + Math.random() * 0.6) * flowerInfo.scale;
                         flowerModel.scale.set(scale, scale, scale);
-                        
+
                         // Random rotation
                         flowerModel.rotation.y = Math.random() * Math.PI * 2;
-                        
+
                         // Add to scene
                         scene.add(flowerModel);
-                        
+
                         // Store animation data for this flower
                         flowerData.push({
                             model: flowerModel,
@@ -933,52 +957,52 @@
                             initialPosition: flowerModel.position.clone(),
                             initialRotation: flowerModel.rotation.clone()
                         });
-                        
+
                         debugLog(`Placed ${flowerInfo.name} at (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})`);
-                        
+
                     } catch (e) {
                         console.error("Error cloning model:", e);
                         debugLog(`Error placing flower ${i}`);
                         continue;
                     }
                 }
-                
+
                 // Store flower data for animation
                 flowers.push({
                     flowers: flowerData,
                     startTime: Date.now()
                 });
-                
+
                 debugLog(`Placed ${flowerData.length} flowers in 360° garden`);
             }
-            
+
             // Update flower animations
             function updateFlowerAnimations() {
                 if (flowers.length === 0 || !isPlaced) return;
-                
+
                 const now = Date.now();
                 const elapsed = (now - flowers[0].startTime) / 1000; // Seconds
-                
+
                 // Animate each flower with natural swaying motion
                 flowers[0].flowers.forEach(flower => {
                     // Sway flowers like in the wind
                     // Apply rotation sway (rotate around Y axis to simulate wind)
-                    flower.model.rotation.z = flower.initialRotation.z + 
-                                             Math.sin(elapsed * flower.swaySpeed) * 
-                                             flower.swayAmount * flower.swayDirection;
-                    
+                    flower.model.rotation.z = flower.initialRotation.z +
+                        Math.sin(elapsed * flower.swaySpeed) *
+                        flower.swayAmount * flower.swayDirection;
+
                     // Slightly sway position for more natural movement
-                    flower.model.position.x = flower.initialPosition.x + 
-                                             Math.sin(elapsed * flower.bobSpeed * 0.7) * 
-                                             flower.bobAmount;
-                    
+                    flower.model.position.x = flower.initialPosition.x +
+                        Math.sin(elapsed * flower.bobSpeed * 0.7) *
+                        flower.bobAmount;
+
                     // Add subtle bobbing motion
-                    flower.model.position.y = flower.initialPosition.y + 
-                                             Math.sin(elapsed * flower.bobSpeed) * 
-                                             flower.bobAmount * 0.5;
+                    flower.model.position.y = flower.initialPosition.y +
+                        Math.sin(elapsed * flower.bobSpeed) *
+                        flower.bobAmount * 0.5;
                 });
             }
-            
+
             // Remove all flowers
             function removeFlowers() {
                 // Remove from scene
@@ -987,13 +1011,13 @@
                         scene.remove(flower.model);
                     });
                 });
-                
+
                 // Clear array
                 flowers = [];
-                
+
                 debugLog('Flowers removed');
             }
-            
+
             // Function to load responses
             function loadResponses() {
                 // Default responses
@@ -1002,10 +1026,10 @@
                     { name: "Carlos", message: "It would be a better use of the empty lot." },
                     { name: "Aisha", message: "I'd love to grow vegetables with my neighbors." }
                 ];
-                
+
                 // URL of Google Apps Script
                 const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses';
-                
+
                 // Try to load real responses
                 fetch(scriptURL)
                     .then(response => response.json())
@@ -1024,24 +1048,24 @@
                         window.responseInterval = setInterval(showNextResponse, 12000);
                     });
             }
-            
+
             // Function to show next response
             window.currentResponseIndex = -1;
             function showNextResponse() {
                 if (!window.responses || window.responses.length === 0) return;
-                
+
                 // Get next response
                 let newIndex;
                 do {
                     newIndex = Math.floor(Math.random() * window.responses.length);
                 } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
-                
+
                 window.currentResponseIndex = newIndex;
                 const response = window.responses[window.currentResponseIndex];
-                
+
                 // Update display
                 responseDisplay.textContent = `"${response.message}" - ${response.name}`;
-                
+
                 // Animate in
                 responseDisplay.style.opacity = 0;
                 setTimeout(() => {
@@ -1052,4 +1076,5 @@
         });
     </script>
 </body>
+
 </html>
