@@ -695,7 +695,7 @@
                 if (!messageElement || !responseElement) { debugLog('CRITICAL ERROR: HTML element for text not found!'); return; }
 
                 messageObject = new THREE.CSS2DObject(messageElement);
-                messageObject.position.set(0, 1.8, -4.0); // Position main text
+                messageObject.position.set(0, 4, -4.0); // Position main text
                 scene.add(messageObject);
                 messageObject.visible = false; // Start hidden
 
