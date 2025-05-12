@@ -1,51 +1,306 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden? - Instanced Flowers</title> <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
+    <title>Why can't this be a community garden? - Instanced Flowers</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/renderers/CSS2DRenderer.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap"
+        rel="stylesheet">
 
     <style>
         /* --- CSS Styles (Keep As Is) --- */
-        body { margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; overflow: hidden; background-color: #000; }
-        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; text-align: center; padding: 20px; box-sizing: border-box; }
-        #loading h1 { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 2.5em; margin-bottom: 15px; }
-        #loading p { font-size: 1.1em; margin-bottom: 20px;}
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', Arial, sans-serif;
+            overflow: hidden;
+            background-color: #000;
+        }
 
-        #camera-feed { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
-        #css2d-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
 
-        #message-container { color: white; background: none; padding: 5px; text-align: center; font-family: 'Gwendolyn', cursive; font-weight: 700; font-size: 30vw; line-height: 1.1; pointer-events: auto; text-shadow: 1px 1px 2px rgba(0,0,0,0.7), 2px 2px 5px rgba(0,0,0,0.5); white-space: normal; max-width: 90%; box-sizing: border-box; }
-        #response-display { color: #C8FFC5; background-color: rgba(0, 0, 0, 0.65); padding: 10px 15px; border-radius: 10px; text-align: center; font-family: 'Roboto', sans-serif; font-size: 18px; font-weight: 400; pointer-events: auto; max-width: 320px; box-sizing: border-box; text-shadow: 1px 1px 2px rgba(0,0,0,0.4); }
+        #loading h1 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
 
-        .controls { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: space-around; padding: 0 20px; box-sizing: border-box; z-index: 100; }
-        .btn { width: 60px; height: 60px; border-radius: 50%; color: white; border: none; font-family: 'Roboto', sans-serif; font-size: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease; }
-        .btn:active { transform: scale(0.95); }
-        #place-btn { background-color: #4CAF50; }
-        #reset-btn { background-color: #f44336; display: none; }
-        #response-toggle { background-color: #2196F3; display: none; }
+        #loading p {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
 
-        #response-form { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(5px); border-radius: 15px; padding: 20px; color: white; z-index: 200; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        #response-form input, #response-form textarea { width: calc(100% - 20px); padding: 10px; margin: 8px 0 12px; border: 1px solid #555; border-radius: 5px; background: rgba(255, 255, 255, 0.1); color: white; font-family: 'Roboto', Arial, sans-serif; font-size: 16px; }
-        #response-form input::placeholder, #response-form textarea::placeholder { color: #bbb; }
-        #response-form textarea { height: 80px; resize: none; }
-        #response-form button { background: #4CAF50; color: white; border: none; padding: 12px 18px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Roboto', sans-serif; width: 100%; font-size: 16px; transition: background-color 0.2s ease; }
-        #response-form button:hover { background: #45a049; }
-        #response-form h3 { margin-top: 0; text-align: center; font-weight: 700; }
-        #response-status { margin-top: 12px; text-align: center; font-weight: bold; min-height: 20px; }
+        #camera-feed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
 
-        #instructions { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(3px); color: white; padding: 12px 18px; border-radius: 10px; text-align: center; font-size: 16px; z-index: 100; max-width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
-        #permission-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 4000; display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; padding: 20px; box-sizing: border-box; }
-        #permission-overlay h2 { font-family: 'Roboto', sans-serif; font-weight: 700; }
-        #permission-btn { margin-top: 20px; padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 30px; font-size: 18px; font-family: 'Roboto', sans-serif; font-weight: 700; cursor: pointer; }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
 
-        #debug-info { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 8px 12px; border-radius: 5px; font-size: 11px; font-family: monospace; z-index: 2500; display: none; width: calc(100% - 40px); max-height: 150px; overflow-y: auto; box-sizing: border-box; border: 1px solid #333; }
+        #css2d-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        #message-container {
+            color: white;
+            background: none;
+            padding: 5px;
+            text-align: center;
+            font-family: 'Gwendolyn', cursive;
+            font-weight: 700;
+            font-size: 20vw;
+            line-height: 1.1;
+            pointer-events: auto;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7), 2px 2px 5px rgba(0, 0, 0, 0.5);
+            white-space: normal;
+            max-width: 90%;
+            box-sizing: border-box;
+        }
+
+        #response-display {
+            color: #C8FFC5;
+            background-color: rgba(0, 0, 0, 0.65);
+            padding: 10px 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-family: 'Roboto', sans-serif;
+            font-size: 18px;
+            font-weight: 400;
+            pointer-events: auto;
+            max-width: 320px;
+            box-sizing: border-box;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            color: white;
+            border: none;
+            font-family: 'Roboto', sans-serif;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        #place-btn {
+            background-color: #4CAF50;
+        }
+
+        #reset-btn {
+            background-color: #f44336;
+            display: none;
+        }
+
+        #response-toggle {
+            background-color: #2196F3;
+            display: none;
+        }
+
+        #response-form {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(5px);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            z-index: 200;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        #response-form input,
+        #response-form textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 8px 0 12px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 16px;
+        }
+
+        #response-form input::placeholder,
+        #response-form textarea::placeholder {
+            color: #bbb;
+        }
+
+        #response-form textarea {
+            height: 80px;
+            resize: none;
+        }
+
+        #response-form button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Roboto', sans-serif;
+            width: 100%;
+            font-size: 16px;
+            transition: background-color 0.2s ease;
+        }
+
+        #response-form button:hover {
+            background: #45a049;
+        }
+
+        #response-form h3 {
+            margin-top: 0;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        #response-status {
+            margin-top: 12px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+        }
+
+        #instructions {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(3px);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 16px;
+            z-index: 100;
+            max-width: 80%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #permission-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 4000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #permission-overlay h2 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+        }
+
+        #permission-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-family: monospace;
+            z-index: 2500;
+            display: none;
+            width: calc(100% - 40px);
+            max-height: 150px;
+            overflow-y: auto;
+            box-sizing: border-box;
+            border: 1px solid #333;
+        }
     </style>
 
     <script id="flowerVertexShader" type="x-shader/x-vertex">
@@ -199,23 +454,44 @@
             float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape));
             alpha = smoothstep(0.0, 0.05, alpha);
 
+            alpha *= 0.7; // Make the entire flower semi-transparent (Adjust 0.7 as needed)
+
             if (alpha < 0.01) {
                 discard;
             }
             gl_FragColor = vec4(final_color, alpha);
         }
     </script>
-    </head>
+</head>
+
 <body>
-    <div id="loading"> <h1>Why can't...?</h1> <p>Loading experience...</p> </div>
-    <div id="permission-overlay"> <h2>Motion Sensors Required</h2> <p>This AR experience needs access to your device's motion sensors to look around.</p> <button id="permission-btn">Allow Motion Sensors</button> </div>
+    <div id="loading">
+        <h1>Why can't...?</h1>
+        <p>Loading experience...</p>
+    </div>
+    <div id="permission-overlay">
+        <h2>Motion Sensors Required</h2>
+        <p>This AR experience needs access to your device's motion sensors to look around.</p> <button
+            id="permission-btn">Allow Motion Sensors</button>
+    </div>
     <video id="camera-feed" autoplay playsinline muted></video>
     <div id="canvas-container"></div>
-    <div id="message-container" style="display: none;"> <p id="message-text">Why can't this be a community garden?</p> </div>
+    <div id="message-container" style="display: none;">
+        <p id="message-text">Why can't this be a community garden?</p>
+    </div>
     <div id="response-display" style="display: none;"></div>
     <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
-    <div class="controls"> <button id="response-toggle" class="btn" title="Share thoughts">+</button> <button id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn" title="Reset Garden">↺</button> </div>
-    <div id="response-form"> <h3>Share Your Thoughts</h3> <form id="garden-response-form"> <label for="name">Your Name:</label> <input type="text" id="name" name="name" placeholder="e.g., Alex P." required> <label for="form-message">Why can't this be a community garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea> <button type="submit">Submit Idea</button> </form> <div id="response-status"></div> </div>
+    <div class="controls"> <button id="response-toggle" class="btn" title="Share thoughts">+</button> <button
+            id="place-btn" class="btn" title="Place Garden">🌸</button> <button id="reset-btn" class="btn"
+            title="Reset Garden">↺</button> </div>
+    <div id="response-form">
+        <h3>Share Your Thoughts</h3>
+        <form id="garden-response-form"> <label for="name">Your Name:</label> <input type="text" id="name" name="name"
+                placeholder="e.g., Alex P." required> <label for="form-message">Why can't this be a community
+                garden?</label> <textarea id="form-message" name="message" placeholder="Your ideas..."
+                required></textarea> <button type="submit">Submit Idea</button> </form>
+        <div id="response-status"></div>
+    </div>
     <div id="debug-info"></div>
 
     <script type="module"> // Use type="module" if using import statements (though not needed here)
@@ -223,7 +499,7 @@
         // Import THREE if using modules, otherwise rely on global script include
         // import * as THREE from 'path/to/three.module.js'; // Example if using modules
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
             const permissionBtn = document.getElementById('permission-btn');
@@ -261,7 +537,7 @@
             else debugInfo.style.display = 'none';
 
             function debugLog(message) {
-                 if (debugMode) { console.log(message); const d = new Date(); const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`; debugInfo.innerHTML = `[${time}] ${message}<br>` + debugInfo.innerHTML.substring(0, 1000); }
+                if (debugMode) { console.log(message); const d = new Date(); const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`; debugInfo.innerHTML = `[${time}] ${message}<br>` + debugInfo.innerHTML.substring(0, 1000); }
             }
 
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -284,27 +560,27 @@
                 debugLog('Fn: initAR END');
             }
 
-             function requestMotionPermission() { /* ... (Keep as is) ... */
-                 debugLog('Fn: requestMotionPermission START');
-                 DeviceOrientationEvent.requestPermission().then(response => {
-                     if (response === 'granted') {
-                         debugLog('Motion permission: GRANTED.');
-                         permissionOverlay.style.display = 'none';
-                         if (loadingScreen) loadingScreen.style.display = 'none'; // Hide loading after permission
-                         initThree();
-                     } else {
-                         debugLog('Motion permission: DENIED.');
-                         alert('Motion sensor access is required for this experience.');
-                         if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload and grant permission.</p>';
-                     }
-                 }).catch(error => {
-                     debugLog('Motion permission ERROR: ' + error);
-                     alert('Error requesting motion sensor access.');
-                     if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
-                 });
-                 debugLog('Fn: requestMotionPermission END');
-             }
-             function startCamera() { /* ... (Keep as is) ... */
+            function requestMotionPermission() { /* ... (Keep as is) ... */
+                debugLog('Fn: requestMotionPermission START');
+                DeviceOrientationEvent.requestPermission().then(response => {
+                    if (response === 'granted') {
+                        debugLog('Motion permission: GRANTED.');
+                        permissionOverlay.style.display = 'none';
+                        if (loadingScreen) loadingScreen.style.display = 'none'; // Hide loading after permission
+                        initThree();
+                    } else {
+                        debugLog('Motion permission: DENIED.');
+                        alert('Motion sensor access is required for this experience.');
+                        if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied. Please reload and grant permission.</p>';
+                    }
+                }).catch(error => {
+                    debugLog('Motion permission ERROR: ' + error);
+                    alert('Error requesting motion sensor access.');
+                    if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
+                });
+                debugLog('Fn: requestMotionPermission END');
+            }
+            function startCamera() { /* ... (Keep as is) ... */
                 debugLog('Fn: startCamera START');
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     alert('Camera access not supported by your browser.');
@@ -322,7 +598,7 @@
                     .catch(err => {
                         console.error('Camera access ERROR:', err);
                         debugLog('Camera ERROR: ' + err.message);
-                         if (err.name === "NotAllowedError") {
+                        if (err.name === "NotAllowedError") {
                             alert("Camera access denied. Please grant permission in your browser settings and reload.");
                             if (loadingScreen) loadingScreen.innerHTML = '<p>Camera access denied. Please grant permission and reload.</p>';
                         } else {
@@ -331,7 +607,7 @@
                         }
                     });
                 debugLog('Fn: startCamera END');
-             }
+            }
 
             function initThree() {
                 try {
@@ -385,11 +661,11 @@
                     animate();
                     debugLog('Fn: initThree END (Instanced).');
 
-                 } catch (error) {
-                     console.error("Error during Three.js initialization:", error);
-                     debugLog("THREE.JS INIT CRASH: " + error.message);
-                     alert("A rendering error occurred. Please try reloading.");
-                 }
+                } catch (error) {
+                    console.error("Error during Three.js initialization:", error);
+                    debugLog("THREE.JS INIT CRASH: " + error.message);
+                    alert("A rendering error occurred. Please try reloading.");
+                }
             }
 
             // --- Functions to create base geometry/material for instancing ---
@@ -401,20 +677,20 @@
             }
 
             function createBaseFlowerMaterial() {
-                 const uniforms = {
+                const uniforms = {
                     u_time: { value: 0.0 }, // Global time uniform remains
-                 };
-                 return new THREE.ShaderMaterial({
+                };
+                return new THREE.ShaderMaterial({
                     uniforms: uniforms,
                     vertexShader: document.getElementById('flowerVertexShader').textContent,
                     fragmentShader: document.getElementById('flowerFragmentShader').textContent,
                     transparent: true,
                     side: THREE.DoubleSide,
                     depthWrite: false // Important for transparent instances
-                 });
+                });
             }
 
-             function createCSS2DObjects() { /* ... (Keep as is) ... */
+            function createCSS2DObjects() { /* ... (Keep as is) ... */
                 debugLog('Fn: createCSS2DObjects START');
                 if (!messageElement || !responseElement) { debugLog('CRITICAL ERROR: HTML element for text not found!'); return; }
 
@@ -429,7 +705,7 @@
                 responseObject.visible = false; // Start hidden
 
                 debugLog('Fn: createCSS2DObjects END');
-             }
+            }
 
 
             // --- Flower Placement (Modified for InstancedMesh) ---
@@ -477,7 +753,7 @@
 
                     // Trigger blooming via JS array with stagger
                     setTimeout(() => {
-                         instanceIsBlooming[i] = true;
+                        instanceIsBlooming[i] = true;
                     }, 200 + Math.random() * 3000); // Longer stagger time <<< TWEAK THIS >>>
                 }
 
@@ -504,7 +780,7 @@
 
                     debugLog('Instanced flowers hidden.');
                 } else {
-                     debugLog('removeFlowers called, but no InstancedMesh found.');
+                    debugLog('removeFlowers called, but no InstancedMesh found.');
                 }
             }
 
@@ -527,16 +803,16 @@
 
             // --- Update Flower Animations (Modified for InstancedMesh) ---
             function updateFlowerAnimations(delta, elapsedTime) {
-                 if (!instancedFlowers || instancedFlowers.count === 0) return;
+                if (!instancedFlowers || instancedFlowers.count === 0) return;
 
-                 let needsGrowTimeUpdate = false;
-                 // Note: We don't need instanceMatrix update unless doing billboarding per frame
+                let needsGrowTimeUpdate = false;
+                // Note: We don't need instanceMatrix update unless doing billboarding per frame
 
-                 // Update global time uniform ONCE for the shared material
-                 instancedFlowers.material.uniforms.u_time.value = elapsedTime;
+                // Update global time uniform ONCE for the shared material
+                instancedFlowers.material.uniforms.u_time.value = elapsedTime;
 
-                 // Loop through visible instances and update their attribute data
-                 for (let i = 0; i < instancedFlowers.count; i++) {
+                // Loop through visible instances and update their attribute data
+                for (let i = 0; i < instancedFlowers.count; i++) {
                     if (instanceIsBlooming[i]) {
                         // Only update grow time if it's still relevant (less than duration + buffer)
                         if (instanceGrowTimes[i] < instanceGrowDuration[i] + 0.5) {
@@ -547,12 +823,12 @@
                         }
                         // We could set instanceIsBlooming[i] = false here if growth is finished
                     }
-                 }
+                }
 
-                 // If any grow times were updated, tell Three.js to update the GPU buffer
-                 if (needsGrowTimeUpdate) {
+                // If any grow times were updated, tell Three.js to update the GPU buffer
+                if (needsGrowTimeUpdate) {
                     instancedFlowers.geometry.attributes.instanceGrowTime.needsUpdate = true;
-                 }
+                }
             }
 
             function onWindowResize() { /* ... (Keep as is) ... */
@@ -561,136 +837,137 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 if (css2dRenderer) css2dRenderer.setSize(window.innerWidth, window.innerHeight);
                 debugLog('Fn: onWindowResize executed.');
-             }
+            }
 
             // --- UI Event Listeners (Minor adjustments needed) ---
-             if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
-             else {
-                 placeBtn.addEventListener('click', function() {
-                     debugLog('Fn: placeBtn CLICKED (Instanced).');
-                     if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
-                     // Check if InstancedMesh is ready before placing
-                     if (!instancedFlowers || !scene || !camera) { debugLog('PlaceBtn: InstancedMesh/Scene/Camera not ready!'); return; }
+            if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
+            else {
+                placeBtn.addEventListener('click', function () {
+                    debugLog('Fn: placeBtn CLICKED (Instanced).');
+                    if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
+                    // Check if InstancedMesh is ready before placing
+                    if (!instancedFlowers || !scene || !camera) { debugLog('PlaceBtn: InstancedMesh/Scene/Camera not ready!'); return; }
 
-                     // Show text elements
-                     if (messageObject && responseObject && messageObject.element && responseObject.element) {
+                    // Show text elements
+                    if (messageObject && responseObject && messageObject.element && responseObject.element) {
                         messageObject.visible = true; messageObject.element.style.display = 'block';
                         responseObject.visible = true; responseObject.element.style.display = 'block';
-                     } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
+                    } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
 
-                     // Update button states etc.
-                     placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
-                     responseToggle.style.display = 'flex'; instructions.style.display = 'none';
+                    // Update button states etc.
+                    placeBtn.style.display = 'none'; resetBtn.style.display = 'flex';
+                    responseToggle.style.display = 'flex'; instructions.style.display = 'none';
 
-                     placeFlowers(); // Place the INSTANCED flowers
+                    placeFlowers(); // Place the INSTANCED flowers
 
-                     isPlaced = true;
-                     loadResponses();
-                     debugLog('PlaceBtn: Instanced Garden PLACED.');
-                 });
-             }
+                    isPlaced = true;
+                    loadResponses();
+                    debugLog('PlaceBtn: Instanced Garden PLACED.');
+                });
+            }
 
-             if (!resetBtn) { debugLog("CRITICAL ERROR: resetBtn element not found!"); }
-             else {
-                  resetBtn.addEventListener('click', function() {
-                     debugLog('Fn: resetBtn CLICKED (Instanced).');
-                     if (!isPlaced) { debugLog("ResetBtn: Nothing to reset."); return; }
+            if (!resetBtn) { debugLog("CRITICAL ERROR: resetBtn element not found!"); }
+            else {
+                resetBtn.addEventListener('click', function () {
+                    debugLog('Fn: resetBtn CLICKED (Instanced).');
+                    if (!isPlaced) { debugLog("ResetBtn: Nothing to reset."); return; }
 
-                     // Hide text elements
-                     if (messageObject && messageObject.element) { messageObject.visible = false; messageObject.element.style.display = 'none'; }
-                     if (responseObject && responseObject.element) { responseObject.visible = false; responseObject.element.style.display = 'none'; }
+                    // Hide text elements
+                    if (messageObject && messageObject.element) { messageObject.visible = false; messageObject.element.style.display = 'none'; }
+                    if (responseObject && responseObject.element) { responseObject.visible = false; responseObject.element.style.display = 'none'; }
 
-                      // Update button states etc.
-                     resetBtn.style.display = 'none'; placeBtn.style.display = 'flex';
-                     responseToggle.style.display = 'none'; responseForm.style.display = 'none';
-                     instructions.style.display = 'block';
+                    // Update button states etc.
+                    resetBtn.style.display = 'none'; placeBtn.style.display = 'flex';
+                    responseToggle.style.display = 'none'; responseForm.style.display = 'none';
+                    instructions.style.display = 'block';
 
-                     removeFlowers(); // Remove the INSTANCED flowers (sets count=0)
+                    removeFlowers(); // Remove the INSTANCED flowers (sets count=0)
 
-                     if (window.responseInterval) clearInterval(window.responseInterval);
+                    if (window.responseInterval) clearInterval(window.responseInterval);
 
-                     isPlaced = false;
-                     debugLog('ResetBtn: Instanced Garden RESET.');
-                  });
-             }
-             if (!responseToggle) { /* ... (Keep as is) ... */ }
-             else { responseToggle.addEventListener('click', function() { /* ... */ }); }
+                    isPlaced = false;
+                    debugLog('ResetBtn: Instanced Garden RESET.');
+                });
+            }
+            if (!responseToggle) { /* ... (Keep as is) ... */ }
+            else { responseToggle.addEventListener('click', function () { /* ... */ }); }
 
 
             // --- Response Loading and Form Submission Logic (Keep as is) ---
             function loadResponses() { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */
-                  debugLog('Fn: loadResponses START');
-                  // Default/Fallback responses
-                  window.responses = [
-                      { name: "Visitor", message: "What if this space bloomed?" },
-                      { name: "Gardener", message: "Imagine the possibilities..." }
-                  ];
+                debugLog('Fn: loadResponses START');
+                // Default/Fallback responses
+                window.responses = [
+                    { name: "Visitor", message: "What if this space bloomed?" },
+                    { name: "Gardener", message: "Imagine the possibilities..." }
+                ];
 
-                  // Replace 'YOUR_SCRIPT_ID' with your actual Google Apps Script ID
-                  const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses'; // <<< YOUR SCRIPT ID HERE >>>
+                // Replace 'YOUR_SCRIPT_ID' with your actual Google Apps Script ID
+                const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getResponses'; // <<< YOUR SCRIPT ID HERE >>>
 
-                  fetch(scriptURL) /* ... rest of fetch logic ... */
-                       .then(response => {
-                          if (!response.ok) throw new Error(`Network response NOT OK: ${response.statusText}`);
-                          return response.json();
-                       })
-                      .then(data => {
-                          if (data.result === 'success' && data.responses && data.responses.length > 0) {
-                              window.responses = data.responses;
-                              debugLog(`Loaded ${window.responses.length} responses from sheet.`);
-                          } else if (data.result === 'error') {
-                              throw new Error(`Script error: ${data.message}`);
-                          } else {
-                              debugLog("Responses loaded, but no new responses or unexpected format. Using defaults.");
-                          }
-                      })
-                      .catch(error => {
-                          console.error('Error loading responses:', error);
-                          debugLog(`Load responses ERROR: ${error.message}. Using defaults.`);
-                      })
-                      .finally(() => {
-                          if (responseObject && responseObject.element) {
-                              showNextResponse();
-                              if (window.responseInterval) clearInterval(window.responseInterval);
-                              window.responseInterval = setInterval(showNextResponse, 8000);
-                              debugLog('Response cycling started/restarted.');
-                          } else { debugLog('Response element not ready, cannot start cycling.'); }
-                      });
-             }
+                fetch(scriptURL) /* ... rest of fetch logic ... */
+                    .then(response => {
+                        if (!response.ok) throw new Error(`Network response NOT OK: ${response.statusText}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.result === 'success' && data.responses && data.responses.length > 0) {
+                            window.responses = data.responses;
+                            debugLog(`Loaded ${window.responses.length} responses from sheet.`);
+                        } else if (data.result === 'error') {
+                            throw new Error(`Script error: ${data.message}`);
+                        } else {
+                            debugLog("Responses loaded, but no new responses or unexpected format. Using defaults.");
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading responses:', error);
+                        debugLog(`Load responses ERROR: ${error.message}. Using defaults.`);
+                    })
+                    .finally(() => {
+                        if (responseObject && responseObject.element) {
+                            showNextResponse();
+                            if (window.responseInterval) clearInterval(window.responseInterval);
+                            window.responseInterval = setInterval(showNextResponse, 8000);
+                            debugLog('Response cycling started/restarted.');
+                        } else { debugLog('Response element not ready, cannot start cycling.'); }
+                    });
+            }
             window.currentResponseIndex = -1;
             function showNextResponse() { /* ... (Keep as is) ... */
-                 if (!responseObject || !responseObject.element) { debugLog("showNextResponse: responseObject or element not ready."); return; }
-                 if (!window.responses || window.responses.length === 0) { responseObject.element.textContent = "Share your thoughts using '+'"; return; }
-                 let newIndex; do { newIndex = Math.floor(Math.random() * window.responses.length); } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
-                 window.currentResponseIndex = newIndex;
-                 const response = window.responses[window.currentResponseIndex]; const displayText = `"${response.message}" - ${response.name}`;
-                 responseObject.element.style.transition = 'opacity 0.6s ease-in-out'; responseObject.element.style.opacity = 0;
-                 setTimeout(() => { responseObject.element.textContent = displayText; responseObject.element.style.opacity = 1; }, 600);
-             }
-             const gardenForm = document.getElementById('garden-response-form');
+                if (!responseObject || !responseObject.element) { debugLog("showNextResponse: responseObject or element not ready."); return; }
+                if (!window.responses || window.responses.length === 0) { responseObject.element.textContent = "Share your thoughts using '+'"; return; }
+                let newIndex; do { newIndex = Math.floor(Math.random() * window.responses.length); } while (window.responses.length > 1 && newIndex === window.currentResponseIndex);
+                window.currentResponseIndex = newIndex;
+                const response = window.responses[window.currentResponseIndex]; const displayText = `"${response.message}" - ${response.name}`;
+                responseObject.element.style.transition = 'opacity 0.6s ease-in-out'; responseObject.element.style.opacity = 0;
+                setTimeout(() => { responseObject.element.textContent = displayText; responseObject.element.style.opacity = 1; }, 600);
+            }
+            const gardenForm = document.getElementById('garden-response-form');
             if (!gardenForm) { /* ... (Keep as is) ... */ }
             else {
-                 gardenForm.addEventListener('submit', function(e) { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */
-                     e.preventDefault(); const name = document.getElementById('name').value; const message = document.getElementById('form-message').value; const timestamp = new Date().toLocaleString(); const statusDiv = document.getElementById('response-status');
-                     if (!name.trim() || !message.trim()) { statusDiv.textContent = 'Please fill all fields.'; statusDiv.style.color = '#ff6b6b'; return; }
-                     statusDiv.textContent = 'Submitting...'; statusDiv.style.color = 'white';
-                     const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'; // <<< YOUR SCRIPT ID HERE >>>
-                     const formData = new FormData(); formData.append('name', name); formData.append('message', message); formData.append('timestamp', timestamp); formData.append('action', 'submitResponse');
-                     fetch(scriptURL, { method: 'POST', body: formData, mode: 'no-cors' })
-                         .then(() => {
-                              debugLog("Form submitted (assumed success due to no-cors)."); statusDiv.textContent = 'Thank you!'; statusDiv.style.color = '#4CAF50'; document.getElementById('garden-response-form').reset();
-                              if (window.responses) window.responses.push({ name, message }); showNextResponse(); setTimeout(() => { responseForm.style.display = 'none'; responseToggle.textContent = '+'; }, 2500);
-                         })
-                         .catch(error => { console.error('Form submission fetch ERROR:', error); debugLog("Form submission fetch ERROR: " + error); statusDiv.textContent = 'Submission network error.'; statusDiv.style.color = '#ff6b6b'; });
-                 });
+                gardenForm.addEventListener('submit', function (e) { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */
+                    e.preventDefault(); const name = document.getElementById('name').value; const message = document.getElementById('form-message').value; const timestamp = new Date().toLocaleString(); const statusDiv = document.getElementById('response-status');
+                    if (!name.trim() || !message.trim()) { statusDiv.textContent = 'Please fill all fields.'; statusDiv.style.color = '#ff6b6b'; return; }
+                    statusDiv.textContent = 'Submitting...'; statusDiv.style.color = 'white';
+                    const scriptURL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'; // <<< YOUR SCRIPT ID HERE >>>
+                    const formData = new FormData(); formData.append('name', name); formData.append('message', message); formData.append('timestamp', timestamp); formData.append('action', 'submitResponse');
+                    fetch(scriptURL, { method: 'POST', body: formData, mode: 'no-cors' })
+                        .then(() => {
+                            debugLog("Form submitted (assumed success due to no-cors)."); statusDiv.textContent = 'Thank you!'; statusDiv.style.color = '#4CAF50'; document.getElementById('garden-response-form').reset();
+                            if (window.responses) window.responses.push({ name, message }); showNextResponse(); setTimeout(() => { responseForm.style.display = 'none'; responseToggle.textContent = '+'; }, 2500);
+                        })
+                        .catch(error => { console.error('Form submission fetch ERROR:', error); debugLog("Form submission fetch ERROR: " + error); statusDiv.textContent = 'Submission network error.'; statusDiv.style.color = '#ff6b6b'; });
+                });
             }
 
-             // Hide loading screen once basic setup seems okay
-             if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
-                 setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
-             }
+            // Hide loading screen once basic setup seems okay
+            if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
+                setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
+            }
 
         }); // End DOMContentLoaded
     </script>
-    </body>
+</body>
+
 </html>
