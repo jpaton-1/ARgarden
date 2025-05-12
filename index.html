@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Garden - 2D Sprite Flowers</title>
+    <title>AR Garden - Sprite Flowers</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
@@ -14,7 +14,6 @@
         rel="stylesheet">
 
     <style>
-        /* --- CSS (Keep As Is from previous working version) --- */
         body { margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; overflow: hidden; background-color: #000; }
         #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; text-align: center; padding: 20px; box-sizing: border-box; }
         #loading h1 { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 2.5em; margin-bottom: 15px; }
@@ -40,54 +39,19 @@
     <script id="flowerFragmentShader" type="x-shader/x-fragment">
         #define PI 3.14159265359
         precision highp float;
-
-        // Global Uniforms
         uniform float u_time;
-
-        // Per-Sprite Uniforms (unique for each sprite's material instance)
         uniform vec2 u_random_vec2;
         uniform float u_stem_grow_time;
         uniform float u_flower_grow_time;
+        varying vec2 vUv;
 
-        varying vec2 vUv; // Standard from SpriteMaterial
-
-        // --- Noise function (Simplex Noise - unchanged) ---
         vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
         float snoise(vec2 v) { const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439); vec2 i = floor(v + dot(v, C.yy)); vec2 x0 = v - i + dot(i, C.xx); vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0); vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod289(i); vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0)); vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0); m = m*m; m = m*m; vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5); vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h); vec3 g; g.x = a0.x * x0.x + h.x * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw; return 130.0 * dot(m, g); }
-
-        // --- Flower shape function (Uses u_random_vec2 and u_flower_grow_time) ---
         float get_flower_shape(vec2 _p, float _pet_n, float _angle, float _outline) { _angle *= 3.0; _p = vec2(_p.x * cos(_angle) - _p.y * sin(_angle), _p.x * sin(_angle) + _p.y * cos(_angle)); float a = atan(_p.y, _p.x); float flower_sectoral_shape = pow(abs(sin(a * _pet_n)), 0.4) + 0.25; vec2 flower_size_range = vec2(0.03, 0.1); float base_scale_factor = 0.55; float size = (flower_size_range[0] + u_random_vec2[0] * flower_size_range[1]) * base_scale_factor; float dist = length(_p); float flower_radial_shape = pow(dist / size, 2.0); flower_radial_shape -= 0.1 * sin(8.0 * a); flower_radial_shape = max(0.1, flower_radial_shape); float grow_progress = pow(min(u_flower_grow_time / 1.5, 1.0), 0.4); float shape_value = smoothstep(flower_sectoral_shape, flower_sectoral_shape * 0.8, flower_radial_shape); float flower_shape = shape_value * grow_progress; return flower_shape; }
-        // --- Stem shape function (Uses u_random_vec2 and u_stem_grow_time) ---
         float get_stem_shape(vec2 _p, vec2 _plane_uv, float _w, float _angle) { _w = max(0.004, _w); _w *= 0.6; float bend_amount = 0.8; float x_offset = _p.y * sin(_angle * 2.0) * bend_amount; x_offset *= pow(max(0.0, _plane_uv.y), 1.5); _p.x -= x_offset; float noise_power = 0.6; float stem_noise = noise_power * snoise(8.0 * _plane_uv + u_random_vec2[0] * 5.0); stem_noise *= smoothstep(0.0, 0.15, length(_p)); stem_noise *= smoothstep(0.0, 0.05, _plane_uv.y); _p.x += stem_noise * 0.1; float left = smoothstep(-_w, 0.0, _p.x); float right = 1.0 - smoothstep(0.0, _w, _p.x); float stem_line = left * right; float grow_progress = pow(min(u_stem_grow_time / 0.8, 1.0), 0.6); float grow_height = -0.5 + grow_progress * 0.5; float height_mask = smoothstep(grow_height - 0.05, grow_height, _p.y); float stem_shape = stem_line * height_mask; stem_shape *= smoothstep(0.01, -0.01, _p.y); stem_shape *= step(0.0, _plane_uv.y); return stem_shape; }
-
-        void main() {
-            vec2 centeredUv = vUv - 0.5; // Sprite UVs are 0 to 1. Center them (0,0 at center).
-            // For stem to grow from bottom, we might need to adjust how _p is used in get_stem_shape
-            // or adjust sprite.center in JS. Let's try with sprite.center first.
-
-            vec3 stem_color = vec3(0.1 + u_random_vec2[0] * 0.6, 0.6, 0.2);
-            vec3 flower_color = vec3(0.6 + 0.5 * u_random_vec2[1], 0.1, 0.9 - 0.5 * u_random_vec2[1]);
-            float angle = 1.5 * (u_random_vec2[0] - 0.5);
-            float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle);
-            float petals_back_number = 2.0 + floor(u_random_vec2[0] * 3.0);
-            float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(u_flower_grow_time, 1.5);
-            float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5);
-            float petals_front_number = 3.0 + floor(u_random_vec2[1] * 3.0);
-            float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0);
-            vec3 final_color = vec3(0.0);
-            final_color += (stem_shape * stem_color);
-            final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(u_flower_grow_time, 1.0), 0.0)));
-            final_color += (flower_front_shape * flower_color);
-            final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape);
-            final_color.b *= 1.0 - (flower_back_shape * flower_front_shape);
-            float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape));
-            alpha = smoothstep(0.0, 0.05, alpha);
-            alpha *= 0.7; 
-            if (alpha < 0.01) discard;
-            gl_FragColor = vec4(final_color, alpha);
-        }
+        void main() { vec2 centeredUv = vUv - 0.5; vec3 stem_color = vec3(0.1 + u_random_vec2[0] * 0.6, 0.6, 0.2); vec3 flower_color = vec3(0.6 + 0.5 * u_random_vec2[1], 0.1, 0.9 - 0.5 * u_random_vec2[1]); float angle = 1.5 * (u_random_vec2[0] - 0.5); float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle); float petals_back_number = 2.0 + floor(u_random_vec2[0] * 3.0); float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(u_flower_grow_time, 1.5); float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5); float petals_front_number = 3.0 + floor(u_random_vec2[1] * 3.0); float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0); vec3 final_color = vec3(0.0); final_color += (stem_shape * stem_color); final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(u_flower_grow_time, 1.0), 0.0))); final_color += (flower_front_shape * flower_color); final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape); final_color.b *= 1.0 - (flower_back_shape * flower_front_shape); float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape)); alpha = smoothstep(0.0, 0.05, alpha); alpha *= 0.7; if (alpha < 0.01) discard; gl_FragColor = vec4(final_color, alpha); }
     </script>
-    </head>
+</head>
 <body>
     <div id="loading"> <h1>Why can't...?</h1> <p>Loading experience...</p> </div>
     <div id="permission-overlay"> </div>
@@ -97,7 +61,7 @@
     <div id="response-display" style="display: none;"></div>
     <div id="instructions">Tap 🌸 to experience the garden, then look around.</div>
     <div class="controls"> </div>
-    <div id="response-form"> </div>
+    <div id="response-form"><h3>Share Your Thoughts</h3><form id="garden-response-form"><label for="name">Your Name:</label><input type="text" id="name" name="name" placeholder="e.g., Alex P." required><label for="form-message">Why can't this be a community garden?</label><textarea id="form-message" name="message" placeholder="Your ideas..." required></textarea><button type="submit">Submit Idea</button></form><div id="response-status"></div></div>
     <div id="debug-info"></div>
 
     <script type="module">
@@ -108,13 +72,14 @@
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
             const permissionBtn = document.getElementById('permission-btn');
-            // ... (other DOM element consts) ...
+            const cameraFeed = document.getElementById('camera-feed');
+            const canvasContainer = document.getElementById('canvas-container');
+            const instructions = document.getElementById('instructions');
             const placeBtn = document.getElementById('place-btn');
             const resetBtn = document.getElementById('reset-btn');
             const responseToggle = document.getElementById('response-toggle');
             const responseFormParent = document.getElementById('response-form');
             const messageElement = document.getElementById('message-container');
-
 
             debugInfo = document.getElementById('debug-info');
 
@@ -138,9 +103,10 @@
 
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+            simpleLog("About to call initAR()");
             initAR();
 
-            function initAR() { /* ... (Keep as is from working rollback) ... */ }
+            function initAR() { /* ... (Keep as is) ... */ }
             function requestMotionPermission() { /* ... (Keep as is) ... */ }
             function startCamera() { /* ... (Keep as is) ... */ }
 
@@ -153,7 +119,7 @@
                     controls = new THREE.DeviceOrientationControls(camera); clock = new THREE.Clock();
                     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambientLight); const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7); directionalLight.position.set(1, 3, 2); scene.add(directionalLight);
                     
-                    // No InstancedMesh setup here
+                    // No InstancedMesh setup for flowers
                     createCSS2DObjects(); window.addEventListener('resize', onWindowResize); animate();
                     simpleLog("initThree: COMPLETED SUCCESSFULLY (Sprite Flowers)");
                  } catch (error) { console.error("initThree: CRITICAL ERROR:", error); alert("initThree CRASHED: " + error.message); }
@@ -163,36 +129,36 @@
 
             function createFlowerSpriteMaterial(initialRandomVec2, initialStemTime, initialFlowerTime) {
                  const uniforms = {
-                    u_time: { value: clock.getElapsedTime() }, // Global time
+                    u_time: { value: clock ? clock.getElapsedTime() : 0.0 }, // Global time
                     u_random_vec2: { value: initialRandomVec2 || new THREE.Vector2(Math.random(), Math.random()) },
                     u_stem_grow_time: { value: initialStemTime || 0.0 },
                     u_flower_grow_time: { value: initialFlowerTime || 0.0 }
                  };
-                 return new THREE.SpriteMaterial({
-                    // map: aTexture, // If you were using a texture map
-                    // color: 0xffffff, // Can be used to tint if not using complex shader colors
+                 const spriteMat = new THREE.SpriteMaterial({
                     transparent: true,
-                    depthWrite: false, // Good for transparent billboard type objects
-                    depthTest: true,   // Standard depth testing
-                    onBeforeCompile: shader => { // Inject our uniforms and fragment shader logic
-                        shader.uniforms.u_time = uniforms.u_time;
-                        shader.uniforms.u_random_vec2 = uniforms.u_random_vec2;
-                        shader.uniforms.u_stem_grow_time = uniforms.u_stem_grow_time;
-                        shader.uniforms.u_flower_grow_time = uniforms.u_flower_grow_time;
-                        shader.fragmentShader = document.getElementById('flowerFragmentShader').textContent;
-                        // Note: SpriteMaterial's vertex shader handles billboarding.
-                        // We are replacing its fragment shader.
-                    }
+                    depthWrite: false,
+                    depthTest: true,
                  });
+                 spriteMat.onBeforeCompile = shader => {
+                    shader.uniforms.u_time = uniforms.u_time;
+                    shader.uniforms.u_random_vec2 = uniforms.u_random_vec2;
+                    shader.uniforms.u_stem_grow_time = uniforms.u_stem_grow_time;
+                    shader.uniforms.u_flower_grow_time = uniforms.u_flower_grow_time;
+                    // Keep standard sprite vertex shader, replace fragment shader
+                    shader.fragmentShader = document.getElementById('flowerFragmentShader').textContent;
+                    // Store our custom uniforms reference on the material for easy update
+                    spriteMat.userData.customUniforms = uniforms;
+                 };
+                 return spriteMat;
             }
 
-            function createCSS2DObjects() { /* ... (Keep as is from working rollback) ... */ }
+            function createCSS2DObjects() { /* ... (Keep as is) ... */ }
 
             function placeFlowers() {
                 simpleLog("placeFlowers: Called (Sprite Version)");
                 removeFlowers(); // Clear existing sprites
 
-                const flowerCount = MAX_SPRITE_FLOWERS;
+                const flowerCount = MAX_SPRITE_FLOWERS; // <<< TWEAK THIS LATER
                 const minDistance = 2.0; const maxDistance = 15.0;
                 const minHeight = -1.5; const maxHeight = 1.0;
 
@@ -204,7 +170,6 @@
                     const material = createFlowerSpriteMaterial(randomVec2, 0, 0);
                     const sprite = new THREE.Sprite(material);
 
-                    // Set 3D position
                     const angle = Math.random() * Math.PI * 2;
                     const distance = minDistance + Math.random() * (maxDistance - minDistance);
                     const x = Math.cos(angle) * distance;
@@ -212,25 +177,19 @@
                     const y = (camera.position.y - 1.6) + (minHeight + Math.random() * (maxHeight - minHeight));
                     sprite.position.set(x, y, z);
 
-                    // Set sprite scale (how large it appears on screen)
-                    const spriteScale = 1.5 + Math.random() * 1.0; // <<< TWEAK THIS sprite size
+                    const spriteScale = 1.8 + Math.random() * 0.7; // <<< TWEAK sprite screen size
                     sprite.scale.set(spriteScale, spriteScale, 1.0);
-
-                    // Set sprite center: (0.5, 0) means X=center, Y=bottom of the sprite image is at sprite.position
-                    sprite.center.set(0.5, 0.0); // So stem grows upwards from its position
+                    sprite.center.set(0.5, 0.0); // Anchor at bottom-center for stem growth
 
                     scene.add(sprite);
                     activeFlowerSprites.push({
                         sprite: sprite,
-                        material: material, // Store material for uniform updates
-                        stemTime: 0,
-                        flowerTime: 0,
-                        stemDuration: stemDuration,
-                        flowerDuration: flowerDuration,
-                        isBlooming: false // Will be set by setTimeout
+                        // material: material, // Material is on sprite.material
+                        stemTime: 0, flowerTime: 0,
+                        stemDuration: stemDuration, flowerDuration: flowerDuration,
+                        isBlooming: false
                     });
 
-                    // Stagger bloom start
                     setTimeout(() => {
                         const spriteData = activeFlowerSprites.find(s => s.sprite === sprite);
                         if(spriteData) spriteData.isBlooming = true;
@@ -243,12 +202,13 @@
                 simpleLog(`removeFlowers: Removing ${activeFlowerSprites.length} sprites.`);
                 activeFlowerSprites.forEach(spriteData => {
                     scene.remove(spriteData.sprite);
-                    spriteData.material.dispose(); // Dispose material
+                    if (spriteData.sprite.material.map) spriteData.sprite.material.map.dispose(); // If using a texture map
+                    spriteData.sprite.material.dispose();
                 });
                 activeFlowerSprites = [];
             }
 
-            function placeDynamicResponses() { /* ... (Keep as is from working rollback) ... */ }
+            function placeDynamicResponses() { /* ... (Keep as is) ... */ }
             function removeDynamicResponses() { /* ... (Keep as is) ... */ }
             function animate() { /* ... (Keep as is) ... */ }
 
@@ -256,25 +216,20 @@
                  if (activeFlowerSprites.length === 0) return;
 
                  activeFlowerSprites.forEach(spriteData => {
-                    // Update global time uniform for each sprite's material
-                    spriteData.material.uniforms.u_time.value = elapsedTime;
+                    const material = spriteData.sprite.material;
+                    if (!material.userData.customUniforms) return; // Guard if onBeforeCompile hasn't run yet
+
+                    material.userData.customUniforms.u_time.value = elapsedTime;
 
                     if (spriteData.isBlooming) {
-                        let needsUniformUpdate = false;
-                        // Update Stem Growth
                         if (spriteData.stemTime < spriteData.stemDuration) {
                             spriteData.stemTime += delta;
-                            spriteData.material.uniforms.u_stem_grow_time.value = spriteData.stemTime;
-                            needsUniformUpdate = true; // Though uniforms are objects, direct value change is fine
+                            material.userData.customUniforms.u_stem_grow_time.value = spriteData.stemTime;
                         }
-                        // Update Flower Growth (ONLY if stem is finished)
                         else if (spriteData.flowerTime < spriteData.flowerDuration) {
                             spriteData.flowerTime += delta;
-                            spriteData.material.uniforms.u_flower_grow_time.value = spriteData.flowerTime;
-                            needsUniformUpdate = true;
+                            material.userData.customUniforms.u_flower_grow_time.value = spriteData.flowerTime;
                         }
-                        // No explicit 'needsUpdate' for shader material uniforms typically,
-                        // Three.js picks up changes to uniform.value each frame.
                     }
                  });
             }
@@ -285,7 +240,7 @@
              if (!resetBtn) { /* ... */ } else { /* ... (resetBtn listener as before) ... */ }
              if (!responseToggle) { /* ... */ } else { /* ... (responseToggle listener as before) ... */ }
 
-            function loadResponses(isInitialPlacement = false) { /* ... (Keep as is from working rollback) ... */ }
+            function loadResponses(isInitialPlacement = false) { /* ... (Keep as is) ... */ }
             const gardenResponseForm = document.getElementById('garden-response-form');
             if (!gardenResponseForm) { console.error("CRITICAL ERROR: garden-response-form element not found!"); }
             else { gardenResponseForm.addEventListener('submit', function(e) { /* ... */ }); }
