@@ -4,9 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Garden - Animated Flowers (Fixed Shaders)</title>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
+    <title>AR Garden - Debug No Flowers (Step 1)</title> <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/renderers/CSS2DRenderer.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,164 +43,63 @@
     </style>
 
     <script id="flowerVertexShader" type="x-shader/x-vertex">
-// REMOVED: #version, precision - Three.js provides these
+        // --- Vertex Shader is UNCHANGED from the previous working version ---
 
-// Standard uniforms provided by Three.js (DO NOT redeclare)
-// uniform mat4 modelViewMatrix;
-// uniform mat4 projectionMatrix;
+        // Custom uniforms (declare ONLY these)
+        uniform float u_time;
 
-// Custom uniforms (declare ONLY these)
-uniform float u_time;
+        // Custom instanced attributes (declare ONLY these)
+        in vec2 instanceRandomVec2;      
+        in float instanceStemGrowTime;   
+        in float instanceFlowerGrowTime; 
 
-// Standard attributes provided by Three.js (DO NOT redeclare)
-// in vec3 position;
-// in vec2 uv;
-// in vec3 normal; // If needed
+        // Varyings to pass to fragment shader (declare these)
+        out vec2 vUv;
+        out float vTime;
+        out vec2 vRandomVec2;
+        out float vStemGrowTime;
+        out float vFlowerGrowTime;
+        out float vFragDepth;
 
-// Custom instanced attributes (declare ONLY these)
-in vec2 instanceRandomVec2;      // x: random1 (0-1), y: random2 (0-1) for variations
-in float instanceStemGrowTime;   // Normalized 0.0 (start) to 1.0 (fully grown)
-in float instanceFlowerGrowTime; // Normalized 0.0 (start) to 1.0 (fully bloomed)
+        void main() {
+            vUv = uv; // Read standard attribute
+            vTime = u_time; 
+            
+            vRandomVec2 = instanceRandomVec2;
+            vStemGrowTime = instanceStemGrowTime;
+            vFlowerGrowTime = instanceFlowerGrowTime;
 
-// Varyings to pass to fragment shader (declare these)
-out vec2 vUv;
-out float vTime;
-out vec2 vRandomVec2;
-out float vStemGrowTime;
-out float vFlowerGrowTime;
-out float vFragDepth;
+            vec3 pos = position; // Use standard attribute
 
-void main() {
-    // Read standard attributes (uv, position) provided by Three.js
-    vUv = uv;
-    vTime = u_time; // Pass custom uniform
-    
-    // Read custom attributes
-    vRandomVec2 = instanceRandomVec2;
-    vStemGrowTime = instanceStemGrowTime;
-    vFlowerGrowTime = instanceFlowerGrowTime;
+            // Gentle sway animation
+            float wiggleFactor = vStemGrowTime * (0.03 + vRandomVec2.x * 0.03);
+            pos.x += sin(vTime * (0.8 + vRandomVec2.y * 0.4) + pos.y * 0.6) * wiggleFactor;
+            pos.y += cos(vTime * (0.7 + vRandomVec2.x * 0.3) + pos.x * 0.4) * wiggleFactor * 0.7;
 
-    vec3 pos = position; // Use standard 'position' attribute
-
-    // Gentle sway animation
-    float wiggleFactor = vStemGrowTime * (0.03 + vRandomVec2.x * 0.03);
-    pos.x += sin(vTime * (0.8 + vRandomVec2.y * 0.4) + pos.y * 0.6) * wiggleFactor;
-    pos.y += cos(vTime * (0.7 + vRandomVec2.x * 0.3) + pos.x * 0.4) * wiggleFactor * 0.7;
-
-    // Use standard uniforms (modelViewMatrix, projectionMatrix) provided by Three.js
-    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * mvPosition;
-    
-    vFragDepth = gl_Position.z / gl_Position.w;
-}
+            // Use standard uniforms 
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            
+            vFragDepth = gl_Position.z / gl_Position.w;
+        }
     </script>
 
     <script id="flowerFragmentShader" type="x-shader/x-fragment">
-// REMOVED: #version, precision - Three.js provides these
+        // --- Fragment Shader SIMPLIFIED for debugging ---
 
-// Custom uniforms (declare ONLY these, if needed in FS directly)
-// uniform float u_time; // Available, but vTime varying is used here
+        // Varyings received from vertex shader (declare these)
+        in vec2 vUv; // Still needed to know *where* to draw
+        // Other varyings (vTime, vRandomVec2, etc.) are not needed for this simple test
 
-// Varyings received from vertex shader (declare these)
-in vec2 vUv;
-in float vTime;
-in vec2 vRandomVec2;
-in float vStemGrowTime;
-in float vFlowerGrowTime;
-// in float vFragDepth; // Available if needed
+        // Use the automatically provided output variable via the #define
+        #define gl_FragColor pc_fragColor
 
-// Standard fragment output provided by Three.js (DO NOT redeclare)
-// out vec4 pc_fragColor; 
-// Use the define below to use 'gl_FragColor' name like in WebGL 1
-#define gl_FragColor pc_fragColor
-
-// Constants
-#define PI 3.14159265359
-#define TWO_PI 6.28318530718
-
-// SDF functions (Helper functions are fine)
-float sdfCircle(vec2 p, float r) {
-    return length(p) - r;
-}
-float sdfBox(vec2 p, vec2 b) {
-    vec2 d = abs(p) - b;
-    return length(max(d, vec2(0.0))) + min(max(d.x, d.y), 0.0);
-}
-vec2 rotate(vec2 p, float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    return mat2(c, -s, s, c) * p;
-}
-
-void main() {
-    // Center UV coordinates
-    vec2 uv = vUv - 0.5;
-
-    vec3 finalColor = vec3(0.0);
-    float finalAlpha = 0.0;
-
-    // --- Stem ---
-    vec3 stemColor = vec3(0.25 + vRandomVec2.x * 0.1, 0.45 + vRandomVec2.x * 0.1, 0.1 + vRandomVec2.x * 0.05);
-    float stemWidth = 0.025 + vRandomVec2.y * 0.01;
-    float stemBaseY = -0.1;
-    float stemMaxVisualHeight = 0.5 + stemBaseY;
-    float currentStemVisualHeight = vStemGrowTime * stemMaxVisualHeight;
-    float stemCenterY = -0.5 + currentStemVisualHeight / 2.0;
-    float stemSDF = sdfBox(vec2(uv.x, uv.y - stemCenterY), vec2(stemWidth, currentStemVisualHeight / 2.0));
-    float stemAlpha = smoothstep(0.005, 0.0, stemSDF) * vStemGrowTime;
-
-    if (stemAlpha > 0.01) {
-        finalColor = mix(finalColor, stemColor, stemAlpha);
-        finalAlpha = max(finalAlpha, stemAlpha);
-    }
-
-    // --- Flower ---
-    if (vStemGrowTime > 0.6) {
-        float bloomProgress = vFlowerGrowTime;
-        vec2 flowerCenterPos = vec2(0.0, stemBaseY + 0.02 * bloomProgress);
-        vec3 petalColor1 = vec3(0.85 + vRandomVec2.x * 0.15, 0.3 + vRandomVec2.y * 0.2, 0.4 + vRandomVec2.x * 0.1);
-        vec3 petalColor2 = vec3(0.9, 0.4 + vRandomVec2.x * 0.2, 0.5 + vRandomVec2.y * 0.15);
-        vec3 flowerCoreColor = vec3(0.95, 0.85, 0.3);
-        int numPetals = int(5.0 + vRandomVec2.x * 2.9);
-        float petalLength = (0.12 + vRandomVec2.y * 0.05) * bloomProgress;
-        float petalWidth = (petalLength * 0.6) * (0.8 + vRandomVec2.x * 0.2);
-        float petalSharpness = 0.005;
-        float minPetalSDF = 10.0;
-
-        for (int i = 0; i < numPetals; i++) {
-            float anglePerPetal = TWO_PI / float(numPetals);
-            float baseAngle = anglePerPetal * float(i) + vRandomVec2.y * PI * 0.2;
-            float unfurlAngle = (1.0 - bloomProgress * bloomProgress) * (PI / 3.0) * (mod(float(i), 2.0) - 0.5) * 2.0;
-            float currentPetalAngle = baseAngle + unfurlAngle;
-            vec2 petalInstanceCenter = flowerCenterPos + vec2(cos(currentPetalAngle), sin(currentPetalAngle)) * (petalLength * 0.55);
-            vec2 p_local = rotate(uv - petalInstanceCenter, -currentPetalAngle);
-            float sdf = sdfCircle(p_local / vec2(petalWidth, petalLength) , 0.5);
-            minPetalSDF = min(minPetalSDF, sdf);
+        void main() {
+            // --- DEBUG STEP 1: Output solid magenta color ---
+            // Ignore all previous logic for drawing stems/flowers/transparency.
+            // Just output an opaque color for every fragment.
+            gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0); // Magenta, Alpha = 1.0 (Opaque)
         }
-        float petalsAlpha = smoothstep(petalSharpness, 0.0, minPetalSDF) * bloomProgress;
-
-        float coreRadius = (0.03 + vRandomVec2.x * 0.015) * bloomProgress;
-        float coreSDF = sdfCircle(uv - flowerCenterPos, coreRadius);
-        float coreAlpha = smoothstep(0.005, 0.0, coreSDF) * bloomProgress;
-
-        if (petalsAlpha > 0.01) {
-            vec3 currentPetalColor = mix(petalColor1, petalColor2, 0.5 + 0.5 * sin(float(numPetals) * vRandomVec2.y + vTime * 0.5));
-            finalColor = mix(finalColor, currentPetalColor, petalsAlpha / (finalAlpha + petalsAlpha + 0.001) );
-            finalAlpha = max(finalAlpha, petalsAlpha);
-        }
-        if (coreAlpha > 0.01) {
-            finalColor = mix(finalColor, flowerCoreColor, coreAlpha / (finalAlpha + coreAlpha + 0.001) );
-            finalAlpha = max(finalAlpha, coreAlpha);
-        }
-    }
-
-    if (finalAlpha < 0.01) {
-        discard;
-    }
-
-    // Use the automatically provided output variable via the #define
-    gl_FragColor = vec4(finalColor, finalAlpha); 
-}
     </script>
 </head>
 
@@ -221,7 +118,7 @@ void main() {
     <script type="module">
         // --- All JavaScript code remains the same as the previous version ---
         document.addEventListener('DOMContentLoaded', function () {
-            console.log("DOM Content Loaded - Debugging UI & Responses V2 - Fixed Shaders");
+            console.log("DOM Content Loaded - Debugging UI & Responses V2 - Debug Step 1 (Solid Color)"); // Updated log message
 
             let debugInfo = null;
             const loadingScreen = document.getElementById('loading');
@@ -270,7 +167,7 @@ void main() {
             simpleLog("About to call initAR()");
             initAR();
 
-            function initAR() { /* ... same as before ... */
+            function initAR() { 
                 simpleLog('initAR: Called');
                 startCamera();
                 if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -283,7 +180,7 @@ void main() {
                     initThree();
                 }
             }
-            function requestMotionPermission() { /* ... same as before ... */
+            function requestMotionPermission() { 
                  simpleLog("requestMotionPermission: Called");
                 DeviceOrientationEvent.requestPermission().then(response => {
                     if (response === 'granted') {
@@ -302,7 +199,7 @@ void main() {
                     if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors. Please reload.</p>';
                 });
             }
-            function startCamera() { /* ... same as before ... */
+            function startCamera() { 
                  simpleLog("startCamera: Called");
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     alert('Camera access is not supported by your browser.');
@@ -326,7 +223,7 @@ void main() {
                     });
             }
 
-            function initThree() { /* ... same as before, relies on corrected shaders ... */
+            function initThree() { 
                  simpleLog("initThree: START");
                 try {
                     scene = new THREE.Scene();
@@ -354,7 +251,7 @@ void main() {
                     scene.add(directionalLight);
 
                     const baseFlowerGeometry = createBaseFlowerGeometry(); 
-                    const baseFlowerMaterial = createBaseFlowerMaterial(); // <<< This uses the corrected shaders now
+                    const baseFlowerMaterial = createBaseFlowerMaterial(); // <<< Uses the simplified FS
                     
                     instancedFlowers = new THREE.InstancedMesh(baseFlowerGeometry, baseFlowerMaterial, MAX_FLOWERS);
                     instancedFlowers.instanceMatrix.setUsage(THREE.DynamicDrawUsage); 
@@ -378,24 +275,24 @@ void main() {
                     alert("A critical error occurred setting up the 3D scene: " + error.message);
                 }
             }
-            function createBaseFlowerGeometry() { /* ... same as before ... */
+            function createBaseFlowerGeometry() { 
                 const s = 1.8;
                 return new THREE.PlaneGeometry(s, s); 
             }
-            function createBaseFlowerMaterial() { /* ... same as before ... */
+            function createBaseFlowerMaterial() { 
                  const uniforms = {
                     u_time: { value: 0.0 },
                 };
                 return new THREE.ShaderMaterial({
                     uniforms: uniforms,
-                    vertexShader: document.getElementById('flowerVertexShader').textContent, // Reads corrected shader
-                    fragmentShader: document.getElementById('flowerFragmentShader').textContent, // Reads corrected shader
-                    transparent: true,
+                    vertexShader: document.getElementById('flowerVertexShader').textContent, 
+                    fragmentShader: document.getElementById('flowerFragmentShader').textContent, // Reads SIMPLIFIED shader
+                    transparent: true, // Keep true for now, though output is opaque
                     side: THREE.DoubleSide, 
-                    depthWrite: false, 
+                    depthWrite: false, // Keep false for now
                 });
             }
-            function createCSS2DObjects() { /* ... same as before ... */
+            function createCSS2DObjects() { 
                  simpleLog("createCSS2DObjects: Called");
                 if (!messageElement) { console.error('CSS2DObjects: messageElement (for large text) not found!'); return; }
                 
@@ -404,7 +301,7 @@ void main() {
                 scene.add(messageObject);
                 messageObject.visible = false; 
             }
-            function placeFlowers() { /* ... same as before ... */
+            function placeFlowers() { 
                 simpleLog("placeFlowers: Called (InstancedMesh version)");
                 if (!instancedFlowers) { console.error("placeFlowers: InstancedMesh not ready."); return; }
 
@@ -460,7 +357,7 @@ void main() {
                 instancedFlowers.count = currentFlowerCount; 
                 simpleLog(`placeFlowers: Placed and set count for ${currentFlowerCount} flowers.`);
             }
-            function removeFlowers() { /* ... same as before ... */
+            function removeFlowers() { 
                  if (instancedFlowers) {
                     simpleLog(`removeFlowers: Hiding ${instancedFlowers.count} flowers by setting count to 0.`);
                     instancedFlowers.count = 0;
@@ -476,7 +373,7 @@ void main() {
                     currentFlowerCount = 0;
                 }
             }
-            function placeDynamicResponses() { /* ... same as before ... */
+            function placeDynamicResponses() { 
                  simpleLog("placeDynamicResponses: Called");
                 if (!window.responses || window.responses.length === 0) {
                     simpleLog("placeDynamicResponses: No responses available to display.");
@@ -516,7 +413,7 @@ void main() {
                 }
                 simpleLog(`placeDynamicResponses: Displayed ${activeResponseObjects.length} responses.`);
             }
-            function removeDynamicResponses() { /* ... same as before ... */
+            function removeDynamicResponses() { 
                  simpleLog(`removeDynamicResponses: Removing ${activeResponseObjects.length} dynamic response objects.`);
                 activeResponseObjects.forEach(obj => {
                     if (obj.element && obj.element.parentNode) {
@@ -526,7 +423,7 @@ void main() {
                 });
                 activeResponseObjects = [];
             }
-            function updateFlowerAnimations(delta, elapsedTime) { /* ... same as before ... */
+            function updateFlowerAnimations(delta, elapsedTime) { 
                 if (!instancedFlowers || instancedFlowers.count === 0) return;
 
                 instancedFlowers.material.uniforms.u_time.value = elapsedTime;
@@ -553,19 +450,24 @@ void main() {
                     }
                 }
 
+                // Log update status once per frame if updates are happening
+                if(needsStemUpdate || needsFlowerUpdate){
+                    //simpleLog(`Update Frame: stemNeedsUpdate=${needsStemUpdate}, flowerNeedsUpdate=${needsFlowerUpdate}, FirstFlowerTimes: stem=${instanceStemGrowTimes[0]?.toFixed(2)}, flower=${instanceFlowerGrowTimes[0]?.toFixed(2)}`);
+                }
+
+
                 if (needsStemUpdate && instancedFlowers.geometry.attributes.instanceStemGrowTime) {
-                    // Force update - Assign a value from the array back to itself (index 0 is arbitrary)
-                    // This sometimes helps ensure the GPU sees the buffer update.
+                    //simpleLog("Setting needsUpdate=true for instanceStemGrowTime"); 
                     instancedFlowers.geometry.attributes.instanceStemGrowTime.array[0] = instanceStemGrowTimes[0]; 
                     instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true;
                 }
                 if (needsFlowerUpdate && instancedFlowers.geometry.attributes.instanceFlowerGrowTime) {
-                    // Force update
+                    //simpleLog("Setting needsUpdate=true for instanceFlowerGrowTime");
                     instancedFlowers.geometry.attributes.instanceFlowerGrowTime.array[0] = instanceFlowerGrowTimes[0]; 
                     instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true;
                 }
             }
-            function animate() { /* ... same as before ... */
+            function animate() { 
                  requestAnimationFrame(animate);
                 if (controls) controls.update();
                 if (!clock) return;
@@ -599,17 +501,17 @@ void main() {
                     css2dRenderer.render(scene, camera);
                 }
             }
-            function onWindowResize() { /* ... same as before ... */
+            function onWindowResize() { 
                 if (camera && renderer && css2dRenderer) {
                     camera.aspect = window.innerWidth / window.innerHeight;
                     camera.updateProjectionMatrix();
                     renderer.setSize(window.innerWidth, window.innerHeight);
                     css2dRenderer.setSize(window.innerWidth, window.innerHeight);
-                    simpleLog("onWindowResize: Updated camera and renderers.");
+                    // simpleLog("onWindowResize: Updated camera and renderers."); // Less noisy log
                 }
             }
             
-            // UI Listeners & Response Handling... same as before ...
+            // --- UI Listeners & Response Handling... same as before ... ---
             if (!placeBtn) { console.error("CRITICAL ERROR: placeBtn element not found!"); }
             else { /* ... placeBtn listener ... */ 
                 simpleLog("Attaching listener to placeBtn.");
@@ -685,7 +587,7 @@ void main() {
                 { name: "Kiddo", message: "Can we have a fairy garden part?" },
                 { name: "Community Member", message: "A bench to sit would be nice." }
              ];
-            function loadResponses(isInitialPlacement = false) { /* ... same as before ... */
+            function loadResponses(isInitialPlacement = false) { 
                  simpleLog(`loadResponses: Called. isInitialPlacement: ${isInitialPlacement}`);
                 if (isPlaced) { 
                     placeDynamicResponses();
@@ -733,7 +635,7 @@ void main() {
                 });
             }
 
-            if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) { /* ... same as before ... */
+            if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) { 
                 if (permissionOverlay.style.display === 'none') {
                      setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 300); 
                 }
