@@ -4,13 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Why can't this be a community garden?</title>
-    
-    <!-- Include Three.js for 3D rendering -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
-    <!-- Include GLTFLoader for loading 3D models -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
-    <!-- Include DeviceOrientationControls for phone motion -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Gwendolyn:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
         body {
@@ -80,23 +81,33 @@
             pointer-events: none;
         }
         
-        #message-container {
+        #        #message-container {
             position: absolute;
-            top: 20%;
+            top: 20%; /* You might need to adjust this after increasing font size */
             left: 50%;
             transform: translateX(-50%);
             color: white;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px 15px;
-            border-radius: 10px;
+            /* background-color: rgba(0, 0, 0, 0.5); */ /* REMOVED */
+            background: none; /* Ensure no background */
+            /* padding: 10px 15px; */ /* REMOVED or adjust if needed */
+            padding: 5px; /* Minimal padding if any */
+            border-radius: 10px; /* Might be less relevant without a background */
             text-align: center;
-            font-size: 18px;
-            max-width: 80%;
+            font-family: 'Gwendolyn', cursive; /* USE GWENDOLYN FONT */
+            font-weight: 700; /* Gwendolyn has 400 and 700, let's try bold */
+            font-size: 64px; /* REALLY BIG - adjust as needed */
+            /* Consider line-height if the text wraps and looks cramped */
+            line-height: 1.2;
+            max-width: 90%; /* Allow it to be wider if needed for the large font */
             animation: float 4s ease-in-out infinite;
             z-index: 10;
             pointer-events: none;
             display: none;
+            /* Add text-shadow for readability against camera feed */
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7),
+                         0 0 10px rgba(0,0,0,0.5); /* Softer, broader shadow plus a sharper one */
         }
+
         
         #response-display {
             position: absolute;
@@ -875,8 +886,8 @@
                 // Define the area to place flowers (360° around the user)
                 const minDistance = 3;  // Min distance from user (meters)
                 const maxDistance = 15; // Max distance from user (meters)
-                const minHeight = -0.5; // Min height (ground level)
-                const maxHeight = 0.5;  // Max height (small variance)
+                const minHeight = -1; // Min height (ground level)
+                const maxHeight = -0.6;  // Max height (small variance)
                 
                 // Individual flower data for animations
                 const flowerData = [];
