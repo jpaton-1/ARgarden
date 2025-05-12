@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Why can't this be a community garden? - Debugging Black Screen</title>
+    <title>Why can't this be a community garden? - Shader Debug</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/DeviceOrientationControls.js"></script>
@@ -63,42 +63,54 @@
         precision highp float;
         uniform float u_time;
         varying vec2 vUv; varying vec2 vInstanceRandomVec2; varying float vInstanceStemGrowTime; varying float vInstanceFlowerGrowTime;
-
-        // Noise function (Simplex Noise - unchanged)
         vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
         float snoise(vec2 v) { const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439); vec2 i = floor(v + dot(v, C.yy)); vec2 x0 = v - i + dot(i, C.xx); vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0); vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod289(i); vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0)); vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0); m = m*m; m = m*m; vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5); vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h); vec3 g; g.x = a0.x * x0.x + h.x * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw; return 130.0 * dot(m, g); }
-        // Flower shape function (Use Flower Time)
         float get_flower_shape(vec2 _p, float _pet_n, float _angle, float _outline) { _angle *= 3.0; _p = vec2(_p.x * cos(_angle) - _p.y * sin(_angle), _p.x * sin(_angle) + _p.y * cos(_angle)); float a = atan(_p.y, _p.x); float flower_sectoral_shape = pow(abs(sin(a * _pet_n)), 0.4) + 0.25; vec2 flower_size_range = vec2(0.03, 0.1); float base_scale_factor = 0.55; float size = (flower_size_range[0] + vInstanceRandomVec2[0] * flower_size_range[1]) * base_scale_factor; float dist = length(_p); float flower_radial_shape = pow(dist / size, 2.0); flower_radial_shape -= 0.1 * sin(8.0 * a); flower_radial_shape = max(0.1, flower_radial_shape); float grow_progress = pow(min(vInstanceFlowerGrowTime / 1.5, 1.0), 0.4); float shape_value = smoothstep(flower_sectoral_shape, flower_sectoral_shape * 0.8, flower_radial_shape); float flower_shape = shape_value * grow_progress; return flower_shape; }
-        // Stem shape function (Use Stem Time)
         float get_stem_shape(vec2 _p, vec2 _plane_uv, float _w, float _angle) { _w = max(0.004, _w); _w *= 0.6; float bend_amount = 0.8; float x_offset = _p.y * sin(_angle * 2.0) * bend_amount; x_offset *= pow(max(0.0, _plane_uv.y), 1.5); _p.x -= x_offset; float noise_power = 0.6; float stem_noise = noise_power * snoise(8.0 * _plane_uv + vInstanceRandomVec2[0] * 5.0); stem_noise *= smoothstep(0.0, 0.15, length(_p)); stem_noise *= smoothstep(0.0, 0.05, _plane_uv.y); _p.x += stem_noise * 0.1; float left = smoothstep(-_w, 0.0, _p.x); float right = 1.0 - smoothstep(0.0, _w, _p.x); float stem_line = left * right; float grow_progress = pow(min(vInstanceStemGrowTime / 0.8, 1.0), 0.6); float grow_height = -0.5 + grow_progress * 0.5; float height_mask = smoothstep(grow_height - 0.05, grow_height, _p.y); float stem_shape = stem_line * height_mask; stem_shape *= smoothstep(0.01, -0.01, _p.y); stem_shape *= step(0.0, _plane_uv.y); return stem_shape; }
 
         void main() {
-            // <<< --- DEBUGGING: Output solid, opaque red --- >>>
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Opaque Red
-
-            /* --- Original main() logic commented out for test ---
             vec2 centeredUv = vUv - 0.5;
             vec3 stem_color = vec3(0.1 + vInstanceRandomVec2[0] * 0.6, 0.6, 0.2);
             vec3 flower_color = vec3(0.6 + 0.5 * vInstanceRandomVec2[1], 0.1, 0.9 - 0.5 * vInstanceRandomVec2[1]);
             float angle = 1.5 * (vInstanceRandomVec2[0] - 0.5);
+
             float stem_shape = get_stem_shape(centeredUv, vUv, 0.007, angle);
             float petals_back_number = 2.0 + floor(vInstanceRandomVec2[0] * 3.0);
             float angle_offset = -(2.0 * step(0.0, angle) - 1.0) * 0.2 * min(vInstanceFlowerGrowTime, 1.5);
             float flower_back_shape = get_flower_shape(centeredUv, petals_back_number, angle + angle_offset, 1.5);
             float petals_front_number = 3.0 + floor(vInstanceRandomVec2[1] * 3.0);
             float flower_front_shape = get_flower_shape(centeredUv, petals_front_number, angle, 1.0);
+
             vec3 final_color = vec3(0.0);
             final_color += (stem_shape * stem_color);
             final_color += (flower_back_shape * (flower_color + vec3(0.0, 0.6 * min(vInstanceFlowerGrowTime, 1.0), 0.0)));
             final_color += (flower_front_shape * flower_color);
             final_color.r *= 1.0 - (0.5 * flower_back_shape * flower_front_shape);
             final_color.b *= 1.0 - (flower_back_shape * flower_front_shape);
+
             float alpha = max(stem_shape, max(flower_back_shape, flower_front_shape));
             alpha = smoothstep(0.0, 0.05, alpha);
-            alpha *= 0.7; 
-            if (alpha < 0.01) discard;
+
+            // --- Debugging Shader ---
+            // 1. Temporarily comment out overall transparency
+            // alpha *= 0.7;
+
+            // 2. Temporarily comment out discard
+            // if (alpha < 0.01) discard;
+
+            // 3. If still black screen after above, uncomment ONE of these lines and the 'return'
+            //    to test if individual shapes are being calculated as non-zero.
+            //    Check console for vInstanceStemGrowTime/vInstanceFlowerGrowTime values from JS update.
+            // gl_FragColor = vec4(stem_shape, 0.0, 0.0, 1.0); return;
+            // gl_FragColor = vec4(0.0, flower_front_shape, 0.0, 1.0); return;
+            // gl_FragColor = vec4(0.0, 0.0, flower_back_shape, 1.0); return;
+            // gl_FragColor = vec4(vUv.x, vUv.y, 0.0, 1.0); return; // Test UVs
+            // gl_FragColor = vec4(vInstanceRandomVec2.x, vInstanceRandomVec2.y, 0.0, 1.0); return; // Test randoms
+            // gl_FragColor = vec4(vInstanceStemGrowTime/2.0, 0.0, 0.0, 1.0); return; // Test stem grow time (normalized roughly)
+            // gl_FragColor = vec4(0.0, vInstanceFlowerGrowTime/2.0, 0.0, 1.0); return; // Test flower grow time
+
+
             gl_FragColor = vec4(final_color, alpha);
-            */
         }
     </script>
     </head>
@@ -120,16 +132,7 @@
             const loadingScreen = document.getElementById('loading');
             const permissionOverlay = document.getElementById('permission-overlay');
             const permissionBtn = document.getElementById('permission-btn');
-            const cameraFeed = document.getElementById('camera-feed');
-            const canvasContainer = document.getElementById('canvas-container');
-            const instructions = document.getElementById('instructions');
-            const placeBtn = document.getElementById('place-btn');
-            const resetBtn = document.getElementById('reset-btn');
-            const responseToggle = document.getElementById('response-toggle');
-            const responseForm = document.getElementById('response-form');
-            const debugInfo = document.getElementById('debug-info');
-            const messageElement = document.getElementById('message-container');
-            const responseElement = document.getElementById('response-display');
+            // ... (rest of consts)
 
             let scene, camera, renderer, controls, css2dRenderer, clock;
             let messageObject, responseObject;
@@ -159,14 +162,8 @@
 
             initAR();
 
-            function initAR() { /* ... (Keep as is, with existing console.logs for debug) ... */
-                console.log("DEBUG: initAR() called"); debugLog('Fn: initAR START'); startCamera();
-                if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') { debugLog('iOS: showing motion permission overlay'); permissionOverlay.style.display = 'flex'; permissionBtn.addEventListener('click', requestMotionPermission, { once: true }); } else { debugLog('Non-iOS or older: proceeding to initThree'); if (loadingScreen) loadingScreen.style.display = 'none'; console.log("DEBUG: Calling initThree() from initAR (non-iOS path)"); initThree(); }
-                debugLog('Fn: initAR END');
-            }
-            function requestMotionPermission() { /* ... (Keep as is, with existing console.logs for debug) ... */
-                 console.log("DEBUG: requestMotionPermission() called"); debugLog('Fn: requestMotionPermission START'); DeviceOrientationEvent.requestPermission().then(response => { if (response === 'granted') { debugLog('Motion permission: GRANTED.'); permissionOverlay.style.display = 'none'; if (loadingScreen) loadingScreen.style.display = 'none'; console.log("DEBUG: Calling initThree() from requestMotionPermission (granted)"); initThree(); } else { debugLog('Motion permission: DENIED.'); alert('Motion sensor access is required for this experience.'); if (loadingScreen) loadingScreen.innerHTML = '<p>Motion sensor access denied...</p>'; } }).catch(error => { debugLog('Motion permission ERROR: ' + error); alert('Error requesting motion sensor access.'); if (loadingScreen) loadingScreen.innerHTML = '<p>Error requesting motion sensors...</p>'; }); debugLog('Fn: requestMotionPermission END');
-            }
+            function initAR() { /* ... (Keep as is, with existing console.logs for debug) ... */ }
+            function requestMotionPermission() { /* ... (Keep as is, with existing console.logs for debug) ... */ }
             function startCamera() { /* ... (Keep as is) ... */ }
 
             function initThree() { /* ... (Keep as is, with previous console.logs for debug and corrected setAttribute) ... */
@@ -186,42 +183,44 @@
                     console.log("DEBUG: initThree() COMPLETED SUCCESSFULLY"); debugLog('Fn: initThree END (Instanced - Separate Growth).');
                  } catch (error) { console.error("DEBUG: CRITICAL ERROR during Three.js initialization:", error); debugLog("THREE.JS INIT CRASH: " + error.message); alert("A critical rendering error occurred. Please try reloading the page."); }
             }
-            function createBaseFlowerGeometry() { /* ... (Keep as is) ... */ }
-            function createBaseFlowerMaterial() { /* ... (Keep as is) ... */ }
+            function createBaseFlowerGeometry() { const flowerSize = 1.8; debugLog(`Base flower geometry size: ${flowerSize.toFixed(2)}`); return new THREE.PlaneGeometry(flowerSize, flowerSize); }
+            function createBaseFlowerMaterial() { const uniforms = { u_time: { value: 0.0 }, }; return new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: document.getElementById('flowerVertexShader').textContent, fragmentShader: document.getElementById('flowerFragmentShader').textContent, transparent: true, side: THREE.DoubleSide, depthWrite: false });}
             function createCSS2DObjects() { /* ... (Keep as is) ... */ }
 
             function placeFlowers() { /* ... (Keep as is, with setAttribute corrections already applied) ... */ }
             function removeFlowers() { /* ... (Keep as is) ... */ }
             function animate() { /* ... (Keep as is) ... */ }
-            function updateFlowerAnimations(delta, elapsedTime) { /* ... (Keep as is) ... */ }
+            function updateFlowerAnimations(delta, elapsedTime) { /* ... (Keep as is) ... */
+                 if (!instancedFlowers || instancedFlowers.count === 0) return;
+                 let needsStemTimeUpdate = false; let needsFlowerTimeUpdate = false;
+                 instancedFlowers.material.uniforms.u_time.value = elapsedTime;
+                 for (let i = 0; i < instancedFlowers.count; i++) {
+                    if (instanceIsBlooming[i]) {
+                        let currentStemTime = instanceStemGrowTimes[i]; let currentFlowerTime = instanceFlowerGrowTimes[i];
+                        const stemDuration = instanceStemGrowDuration[i]; const flowerDuration = instanceFlowerGrowDuration[i];
+                        if (currentStemTime < stemDuration) {
+                            currentStemTime += delta; instancedFlowers.geometry.attributes.instanceStemGrowTime.setX(i, currentStemTime); needsStemTimeUpdate = true;
+                        } else if (currentFlowerTime < flowerDuration) {
+                            currentFlowerTime += delta; instancedFlowers.geometry.attributes.instanceFlowerGrowTime.setX(i, currentFlowerTime); needsFlowerTimeUpdate = true;
+                        }
+                        instanceStemGrowTimes[i] = currentStemTime; instanceFlowerGrowTimes[i] = currentFlowerTime;
+                    }
+                 }
+                 if (needsStemTimeUpdate) instancedFlowers.geometry.attributes.instanceStemGrowTime.needsUpdate = true;
+                 if (needsFlowerTimeUpdate) instancedFlowers.geometry.attributes.instanceFlowerGrowTime.needsUpdate = true;
+            }
             function onWindowResize() { /* ... (Keep as is) ... */ }
 
             // --- UI Event Listeners (with previous debugging alerts/logs) ---
-             if (!placeBtn) { debugLog("CRITICAL ERROR: placeBtn element not found!"); }
-             else {
-                 debugLog("placeBtn element FOUND. Attaching listener.");
-                 placeBtn.addEventListener('click', function() {
-                     alert("DEBUG: Place button was clicked!"); console.log("DEBUG: Place button click handler initiated.");
-                     debugLog('Fn: placeBtn CLICKED (Instanced - Separate Growth).');
-                     if (isPlaced) { debugLog(`PlaceBtn: Already placed.`); return; }
-                     if (!instancedFlowers || !scene || !camera) {
-                         console.error('DEBUG: PlaceBtn CRITICAL - Prerequisite objects not ready!', { instancedFlowersReady: !!instancedFlowers, sceneReady: !!scene, cameraReady: !!camera });
-                         debugLog('PlaceBtn: CRITICAL - InstancedMesh, Scene, or Camera not ready! initThree() might not have completed or run.');
-                         alert("The garden components are not ready yet..."); return;
-                     }
-                     if (messageObject && responseObject && messageObject.element && responseObject.element) { messageObject.visible = true; messageObject.element.style.display = 'block'; responseObject.visible = true; responseObject.element.style.display = 'block'; } else { debugLog('PlaceBtn WARNING: CSS2DObjects/elements not ready!'); }
-                     placeBtn.style.display = 'none'; resetBtn.style.display = 'flex'; responseToggle.style.display = 'flex'; instructions.style.display = 'none';
-                     placeFlowers(); isPlaced = true; loadResponses(); debugLog('PlaceBtn: Instanced Garden PLACED.');
-                 });
-             }
-             if (!resetBtn) { /* ... (Keep as is) ... */ } else { /* ... */ }
-             if (!responseToggle) { /* ... (Keep as is) ... */ } else { /* ... */ }
+             if (!placeBtn) { /* ... */ } else { placeBtn.addEventListener('click', function() { /* ... (Keep placeBtn click handler with its logs) ... */ }); }
+             if (!resetBtn) { /* ... */ } else { /* ... */ }
+             if (!responseToggle) { /* ... */ } else { /* ... */ }
 
             // --- Response Loading and Form Submission Logic ---
             function loadResponses() { /* ... (Keep as is - remember YOUR_SCRIPT_ID) ... */ }
             function showNextResponse() { /* ... (Keep as is) ... */ }
             const gardenForm = document.getElementById('garden-response-form');
-            if (!gardenForm) { /* ... (Keep as is) ... */ } else { /* ... */ }
+            if (!gardenForm) { /* ... */ } else { /* ... */ }
 
             // Hide loading screen
              if (!isIOS || (isIOS && typeof DeviceOrientationEvent.requestPermission !== 'function')) {
